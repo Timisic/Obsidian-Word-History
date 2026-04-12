@@ -16,7 +16,6 @@ STAR_HISTORY_COLORS = {
 }
 
 CHART_TITLE = "Word History"
-X_AXIS_LABEL = "Date"
 Y_AXIS_LABEL = "Words"
 LEGEND_LABEL = "Total Words"
 
@@ -50,6 +49,7 @@ def render_chart_svg(analysis: dict, *, width: int | None = None) -> str:
     max_y = max(max(y_values), 1)
 
     x_axis_ticks = [x_values[0]] if len(x_values) == 1 else _build_time_ticks(min_x, max_x, 5)
+    x_axis_ticks = _prune_overlapping_ticks(x_axis_ticks, chart_width, time_mapper)
     y_axis_ticks = _build_linear_ticks(max_y, 5)
     y_domain_max = y_axis_ticks[-1] if y_axis_ticks else float(max_y)
 
@@ -61,22 +61,24 @@ def render_chart_svg(analysis: dict, *, width: int | None = None) -> str:
         for value, y in zip(x_values, y_values)
     ]
     line_path = _build_line_path(plotted_points)
-    dots_svg = "\n".join(
-        f'    <circle class="chart-dot" cx="{x:.2f}" cy="{y:.2f}" r="3.5" fill="{series_color}" stroke="{series_color}" filter="url(#xkcdify)" />'
-        for x, y in plotted_points
-    )
+    endpoint_dot = ""
+    if plotted_points:
+        end_x, end_y = plotted_points[-1]
+        endpoint_dot = (
+            f'    <circle class="chart-dot endpoint-dot" cx="{end_x:.2f}" cy="{end_y:.2f}" '
+            f'r="4" fill="{series_color}" stroke="{series_color}" />'
+        )
 
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
   {_svg_defs()}
   <rect width="100%" height="100%" fill="{STAR_HISTORY_COLORS['background']}" />
   {_render_title(stroke_color)}
-  {_render_x_label(height, stroke_color)}
   {_render_y_label(height, max_y, stroke_color)}
   <g class="chart" transform="translate({MARGIN['left']},{MARGIN['top']})">
 {_render_x_axis(x_axis_ticks, chart_width, chart_height, time_mapper, stroke_color)}
 {_render_y_axis(y_axis_ticks, y_domain_max, chart_height, stroke_color)}
-    <path class="chart-line" d="{line_path}" fill="none" stroke="{series_color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" filter="url(#xkcdify)" />
-{dots_svg}
+    <path class="chart-line" d="{line_path}" fill="none" stroke="{series_color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+{endpoint_dot}
 {_render_legend(series_color, stroke_color, STAR_HISTORY_COLORS['background'], chart_width, chart_height)}
   </g>
 </svg>'''
@@ -196,10 +198,6 @@ def _svg_defs() -> str:
 
 def _render_title(stroke_color: str) -> str:
     return f'<text x="50%" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="{stroke_color}">{CHART_TITLE}</text>'
-
-
-def _render_x_label(height: int, stroke_color: str) -> str:
-    return f'<text x="50%" y="{height - 10}" text-anchor="middle" font-size="17" fill="{stroke_color}">{X_AXIS_LABEL}</text>'
 
 
 def _render_y_label(height: int, max_value: int, stroke_color: str) -> str:
@@ -351,6 +349,22 @@ def _downsample_ticks(ticks: list[datetime], target: int) -> list[datetime]:
         if not deduped or deduped[-1] != tick:
             deduped.append(tick)
     return deduped
+
+
+def _prune_overlapping_ticks(ticks: list[datetime], chart_width: int, mapper, min_spacing_px: int = 120) -> list[datetime]:
+    if len(ticks) <= 2:
+        return ticks
+
+    kept = [ticks[0]]
+    for tick in ticks[1:-1]:
+        if mapper(tick, chart_width) - mapper(kept[-1], chart_width) >= min_spacing_px:
+            kept.append(tick)
+
+    last_tick = ticks[-1]
+    if mapper(last_tick, chart_width) - mapper(kept[-1], chart_width) < min_spacing_px and len(kept) > 1:
+        kept.pop()
+    kept.append(last_tick)
+    return kept
 
 
 def _first_of_next_month(value: datetime) -> datetime:

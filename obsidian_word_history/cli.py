@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import shutil
+import subprocess
 
 from .analysis import analyze_vault_history
 from .counting import CountConfig
@@ -17,6 +19,7 @@ from .render import render_chart_svg
 class ReportPaths:
     analysis_json: Path
     chart_svg: Path
+    chart_png: Path | None
 
 
 def build_report(
@@ -37,13 +40,16 @@ def build_report(
 
     analysis_path = output_dir / "analysis.json"
     chart_svg_path = output_dir / "chart.svg"
+    chart_png_path = output_dir / "chart.png"
 
     analysis_path.write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
     chart_svg_path.write_text(render_chart_svg(analysis), encoding="utf-8")
+    rendered_png = render_chart_png(chart_svg_path, chart_png_path)
 
     return ReportPaths(
         analysis_json=analysis_path,
         chart_svg=chart_svg_path,
+        chart_png=chart_png_path if rendered_png else None,
     )
 
 
@@ -51,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a local Obsidian Git word-history report.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    build = subparsers.add_parser("build", help="Replay Git history and generate analysis.json + chart.svg")
+    build = subparsers.add_parser("build", help="Replay Git history and generate analysis.json + chart.svg (+ chart.png when rasterizer is available)")
     build.add_argument("--vault", required=True, help="Path to the Git-backed Obsidian vault")
     build.add_argument("--out", default="out", help="Directory to write report output (default: ./out)")
     build.add_argument("--generated-at", help="Override generated_at timestamp in ISO-8601 format")
@@ -99,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "analysis_json": str(paths.analysis_json),
                     "chart_svg": str(paths.chart_svg),
+                    "chart_png": str(paths.chart_png) if paths.chart_png else None,
                 },
                 ensure_ascii=False,
             )
@@ -111,3 +118,32 @@ def main(argv: list[str] | None = None) -> int:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def render_chart_png(chart_svg_path: Path, chart_png_path: Path) -> bool:
+    sips = shutil.which("sips")
+    if sips:
+        completed = subprocess.run(
+            [sips, "-s", "format", "png", str(chart_svg_path), "--out", str(chart_png_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0 and chart_png_path.exists():
+            return True
+
+    qlmanage = shutil.which("qlmanage")
+    if not qlmanage:
+        return False
+
+    completed = subprocess.run(
+        [qlmanage, "-t", "-s", "1600", "-o", str(chart_svg_path.parent), str(chart_svg_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    generated_path = chart_svg_path.parent / f"{chart_svg_path.name}.png"
+    if completed.returncode != 0 or not generated_path.exists():
+        return False
+    generated_path.replace(chart_png_path)
+    return True
