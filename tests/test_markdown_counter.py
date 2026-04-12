@@ -46,7 +46,7 @@ class MarkdownCounterTests(unittest.TestCase):
     def test_exclusion_toggles_remove_expected_content(self) -> None:
         content = (
             "Visible words\n"
-            "[Docs](https://example.com/path) [[Page|Alias]]\n"
+            "[Docs](https://example.com/path) [[Long Page Name|Alias]]\n"
             "[^1] reference\n"
             "[^1]: Footnote text\n"
             "<!-- hidden note -->\n"
@@ -60,7 +60,7 @@ class MarkdownCounterTests(unittest.TestCase):
         self.assertEqual(comments_result.word_count, 13)
 
         code_result = count_markdown(content, CountConfig(exclude_code_blocks=True))
-        self.assertEqual(code_result.word_count, 14)
+        self.assertEqual(code_result.word_count, 15)
 
         links_result = count_markdown(content, CountConfig(exclude_non_visible_link_portions=True))
         self.assertEqual(links_result.word_count, 15)

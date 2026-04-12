@@ -4,7 +4,7 @@ Use this checklist when reviewing the implementation against the approved PRD an
 
 ## Current repo reality
 
-As of 2026-04-12, this repository contains planning artifacts only. Use this checklist to review incoming implementation work and to keep documentation consistent while parallel workers land code.
+As of 2026-04-12, the repository contains the V1 implementation plus the approved planning artifacts. Use this checklist to review ongoing edits against the original contract.
 
 ## Product contract
 

@@ -1,26 +1,9 @@
 import unittest
 
-from obsidian_word_history.analysis import (
-    aggregate_daily_deltas,
-    build_top_notes,
-)
+from obsidian_word_history.analysis import build_recent_active_notes, build_top_notes
 
 
 class AnalysisTests(unittest.TestCase):
-    def test_aggregate_daily_deltas_sums_same_day_commit_changes(self) -> None:
-        commit_series = [
-            {"commit_sha": "a", "timestamp": "2026-01-01T08:00:00+00:00", "total_words": 10},
-            {"commit_sha": "b", "timestamp": "2026-01-01T09:00:00+00:00", "total_words": 18},
-            {"commit_sha": "c", "timestamp": "2026-01-02T10:00:00+00:00", "total_words": 15},
-        ]
-        self.assertEqual(
-            aggregate_daily_deltas(commit_series),
-            [
-                {"date": "2026-01-01", "net_words_added": 18},
-                {"date": "2026-01-02", "net_words_added": -3},
-            ],
-        )
-
     def test_build_top_notes_uses_historical_net_growth(self) -> None:
         note_totals = {
             "alpha.md": [0, 5, 12],
@@ -47,6 +30,36 @@ class AnalysisTests(unittest.TestCase):
                 {"path": "late.md", "initial_words": 0, "final_words": 7, "net_growth": 7},
                 {"path": "blank.md", "initial_words": 0, "final_words": 0, "net_growth": 0},
                 {"path": "deleted.md", "initial_words": 4, "final_words": 0, "net_growth": -4},
+            ],
+        )
+
+    def test_build_recent_active_notes_counts_last_30_days_touch_frequency(self) -> None:
+        note_activity = {
+            "alpha.md": ["2026-03-15T08:00:00+00:00", "2026-04-01T08:00:00+00:00", "2026-04-10T08:00:00+00:00"],
+            "beta.md": ["2026-04-05T08:00:00+00:00", "2026-04-06T08:00:00+00:00"],
+            "gamma.md": ["2026-02-01T08:00:00+00:00", "2026-04-12T08:00:00+00:00"],
+        }
+        current_counts = {"alpha.md": 10, "beta.md": 6, "gamma.md": 2}
+        self.assertEqual(
+            build_recent_active_notes(
+                note_activity,
+                current_counts,
+                top_n=2,
+                as_of_timestamp="2026-04-12T12:00:00+00:00",
+            ),
+            [
+                {
+                    "path": "alpha.md",
+                    "touch_count_30d": 3,
+                    "latest_touch_at": "2026-04-10T08:00:00+00:00",
+                    "current_words": 10,
+                },
+                {
+                    "path": "beta.md",
+                    "touch_count_30d": 2,
+                    "latest_touch_at": "2026-04-06T08:00:00+00:00",
+                    "current_words": 6,
+                },
             ],
         )
 
