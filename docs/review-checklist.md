@@ -29,7 +29,7 @@ As of 2026-04-12, the repository contains the V1 implementation plus the approve
 - [ ] Toggle tests verify each exclusion changes counts in the expected direction
 - [ ] Integration tests replay a temporary Git repo with same-day commits and rename/deletion behavior
 - [ ] Rendering tests verify `chart.svg` structure without remote dependencies
-- [ ] CLI integration tests prove `report.html` is not regenerated accidentally
+- [ ] CLI integration tests prove the output contract stays `analysis.json` + `chart.svg`
 - [ ] Real-vault verification is recorded or remaining gaps are explicitly called out
 
 ## Quality review prompts

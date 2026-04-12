@@ -18,9 +18,8 @@
 1. 从本地 Obsidian Git 历史回放总字数趋势
 2. 输出 `analysis.json`
 3. 输出 `chart.svg`
-4. 输出 `report.html`
-5. 字数统计口径尽量贴近本地 `novel-word-count`
-6. 默认输出到项目内 `out/`
+4. 字数统计口径尽量贴近本地 `novel-word-count`
+5. 默认输出到项目内 `out/`
 
 当前适合做自动化的主产物是：
 
