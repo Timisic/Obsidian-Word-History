@@ -1,7 +1,12 @@
-.omx/
-__pycache__/
+
 *.py[cod]
 .DS_Store
-dist/
+.omx/
+.pytest_cache/
+.venv/
+__pycache__/
 build/
+dist/
 out/
+vendor/awesome-design-md
+vendor/star-history/**/node_modules/

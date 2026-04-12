@@ -1,0 +1,9 @@
+export interface Blog {
+    title: string
+    author: string
+    slug: string
+    featured: boolean
+    featureImage: string
+    publishedDate: string
+    description: string
+}

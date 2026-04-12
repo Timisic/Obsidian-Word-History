@@ -1,0 +1,56 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+.next/
+/out/
+frontend/out/
+dist
+
+# production
+/build
+sitemap*.xml
+robots.txt
+
+# misc
+.DS_Store
+*.pem
+plans/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+gh/gcp-service-account.json
+gh/github-token.env
+gh/*.db-shm
+gh/*.db-wal
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# server
+token.env
+
+# generated files
+frontend/helpers/blog.json
+gh/data/
+
+# gh event pipeline
+gh/event.db
+gh/archive-data/

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import subprocess
-from typing import Iterable
+from typing import Iterable, Literal
 
 from .counting import CountConfig, count_countable_text, is_countable_path, load_count_config
+
+Period = Literal["day", "week", "month"]
 
 
 @dataclass(frozen=True)
@@ -47,10 +49,22 @@ def analyze_vault_history(vault_path: Path | str, config: CountConfig | None = N
             }
         )
 
-    as_of_timestamp = commit_trend[-1]["timestamp"] if commit_trend else _utc_now_iso()
+    as_of_timestamp = str(commit_trend[-1]["timestamp"]) if commit_trend else _utc_now_iso()
+    daily_deltas = aggregate_daily_deltas(commit_trend)
+    weekly_deltas = aggregate_period_deltas(commit_trend, period="week")
+    monthly_deltas = aggregate_period_deltas(commit_trend, period="month")
+    notes = build_note_metrics(
+        note_totals,
+        note_activity,
+        current_counts,
+        commit_trend,
+        as_of_timestamp=as_of_timestamp,
+    )
+    folders = build_folder_metrics(notes)
 
     return {
         "schema_version": "1",
+        "dashboard_version": "1",
         "renderer_version": "1",
         "generated_at": _utc_now_iso(),
         "vault_path": str(repo_path),
@@ -60,6 +74,9 @@ def analyze_vault_history(vault_path: Path | str, config: CountConfig | None = N
             "commit_count": len(commit_trend),
             "latest_total_words": commit_trend[-1]["total_words"] if commit_trend else 0,
             "notes_tracked": commit_trend[-1]["tracked_notes"] if commit_trend else 0,
+            "latest_commit_at": as_of_timestamp,
+            "recent_30d_words_added": _sum_recent_period_values(daily_deltas, as_of_timestamp, days=30),
+            "recent_30d_active_notes": sum(1 for note in notes if int(note["touch_count_30d"]) > 0),
         },
         "commit_trend": commit_trend,
         "recent_active_notes_30d": build_recent_active_notes(
@@ -69,18 +86,29 @@ def analyze_vault_history(vault_path: Path | str, config: CountConfig | None = N
             as_of_timestamp=as_of_timestamp,
         ),
         "top_notes": build_top_notes(note_totals, top_n=top_n),
+        "notes": notes,
+        "folders": folders,
+        "series": {
+            "daily_deltas": daily_deltas,
+            "weekly_deltas": weekly_deltas,
+            "monthly_deltas": monthly_deltas,
+        },
     }
 
 
 def aggregate_daily_deltas(commit_series: Iterable[dict[str, object]]) -> list[dict[str, object]]:
+    return aggregate_period_deltas(commit_series, period="day")
+
+
+def aggregate_period_deltas(commit_series: Iterable[dict[str, object]], *, period: Period) -> list[dict[str, object]]:
     grouped: dict[str, int] = defaultdict(int)
     previous_total = 0
     for entry in commit_series:
         total_words = int(entry["total_words"])
         timestamp = str(entry["timestamp"])
-        grouped[timestamp[:10]] += total_words - previous_total
+        grouped[_period_start_label(timestamp, period)] += total_words - previous_total
         previous_total = total_words
-    return [{"date": date, "net_words_added": grouped[date]} for date in sorted(grouped)]
+    return [{"date": period_start, "net_words_added": grouped[period_start]} for period_start in sorted(grouped)]
 
 
 def build_top_notes(note_totals: dict[str, list[int]], top_n: int = 10) -> list[dict[str, object]]:
@@ -127,7 +155,7 @@ def build_recent_active_notes(
             {
                 "path": path,
                 "touch_count_30d": len(recent_timestamps),
-                "latest_touch_at": max(recent_timestamps),
+                "latest_touch_at": max(recent_timestamps, key=_parse_iso_timestamp),
                 "current_words": current_counts.get(path, 0),
             }
         )
@@ -139,6 +167,93 @@ def build_recent_active_notes(
         )
     )
     return items[:top_n]
+
+
+def build_note_metrics(
+    note_totals: dict[str, list[int]],
+    note_activity: dict[str, list[str]],
+    current_counts: dict[str, int],
+    commit_trend: list[dict[str, object]],
+    *,
+    as_of_timestamp: str,
+) -> list[dict[str, object]]:
+    timestamps = [str(entry["timestamp"]) for entry in commit_trend]
+    window_end = _parse_iso_timestamp(as_of_timestamp)
+    window_start = window_end - timedelta(days=30)
+    items: list[dict[str, object]] = []
+
+    for path, series in note_totals.items():
+        if not series:
+            continue
+        initial = series[0]
+        final = series[-1]
+        if initial == 0 and final == 0:
+            initial = next((value for value in series if value != 0), 0)
+        peak_words = max(series)
+        peak_index = max(range(len(series)), key=lambda index: series[index])
+        all_timestamps = note_activity.get(path, [])
+        recent_timestamps = [
+            timestamp
+            for timestamp in all_timestamps
+            if window_start <= _parse_iso_timestamp(timestamp) <= window_end
+        ]
+        items.append(
+            {
+                "path": path,
+                "folder": _parent_folder(path),
+                "exists": path in current_counts,
+                "current_words": current_counts.get(path, 0),
+                "initial_words": initial,
+                "final_words": final,
+                "peak_words": peak_words,
+                "peak_words_at": timestamps[peak_index] if timestamps else as_of_timestamp,
+                "net_growth": final - initial,
+                "touch_count_total": len(all_timestamps),
+                "touch_count_30d": len(recent_timestamps),
+                "latest_touch_at": max(all_timestamps, key=_parse_iso_timestamp) if all_timestamps else as_of_timestamp,
+            }
+        )
+
+    items.sort(key=lambda item: (-int(item["current_words"]), str(item["path"])))
+    return items
+
+
+def build_folder_metrics(note_metrics: Iterable[dict[str, object]]) -> list[dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
+
+    for note in note_metrics:
+        latest_touch_at = str(note["latest_touch_at"])
+        latest_touch_dt = _parse_iso_timestamp(latest_touch_at)
+        for folder_path in _folder_prefixes_for_note(str(note["path"])):
+            if folder_path not in grouped:
+                grouped[folder_path] = {
+                    "path": folder_path,
+                    "depth": 0 if folder_path == "(root)" else folder_path.count("/") + 1,
+                    "note_count": 0,
+                    "active_notes_30d": 0,
+                    "current_words": 0,
+                    "net_growth": 0,
+                    "touch_count_30d": 0,
+                    "latest_touch_at": latest_touch_at,
+                    "_latest_touch_dt": latest_touch_dt,
+                }
+            bucket = grouped[folder_path]
+            if bool(note["exists"]):
+                bucket["note_count"] = int(bucket["note_count"]) + 1
+            if int(note["touch_count_30d"]) > 0:
+                bucket["active_notes_30d"] = int(bucket["active_notes_30d"]) + 1
+            bucket["current_words"] = int(bucket["current_words"]) + int(note["current_words"])
+            bucket["net_growth"] = int(bucket["net_growth"]) + int(note["net_growth"])
+            bucket["touch_count_30d"] = int(bucket["touch_count_30d"]) + int(note["touch_count_30d"])
+            if latest_touch_dt >= bucket["_latest_touch_dt"]:
+                bucket["latest_touch_at"] = latest_touch_at
+                bucket["_latest_touch_dt"] = latest_touch_dt
+
+    for bucket in grouped.values():
+        bucket.pop("_latest_touch_dt", None)
+    items = list(grouped.values())
+    items.sort(key=lambda item: (-int(item["current_words"]), str(item["path"])))
+    return items
 
 
 def _list_commits(repo_path: Path) -> list[CommitRecord]:
@@ -238,3 +353,40 @@ def _utc_now_iso() -> str:
 
 def _parse_iso_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _period_start_label(timestamp: str, period: Period) -> str:
+    moment = _parse_iso_timestamp(timestamp)
+    if period == "day":
+        return moment.date().isoformat()
+    if period == "week":
+        start = moment.date() - timedelta(days=moment.weekday())
+        return start.isoformat()
+    start_of_month = date(moment.year, moment.month, 1)
+    return start_of_month.isoformat()
+
+
+def _sum_recent_period_values(series: Iterable[dict[str, object]], as_of_timestamp: str, *, days: int) -> int:
+    window_end = _parse_iso_timestamp(as_of_timestamp).date()
+    window_start = window_end - timedelta(days=days)
+    total = 0
+    for entry in series:
+        entry_date = date.fromisoformat(str(entry["date"]))
+        if window_start <= entry_date <= window_end:
+            total += int(entry["net_words_added"])
+    return total
+
+
+def _parent_folder(path: str) -> str:
+    parts = path.split("/")[:-1]
+    return "/".join(parts) if parts else "(root)"
+
+
+def _folder_prefixes_for_note(path: str) -> list[str]:
+    parts = path.split("/")[:-1]
+    if not parts:
+        return ["(root)"]
+    prefixes = ["(root)"]
+    for index in range(1, len(parts) + 1):
+        prefixes.append("/".join(parts[:index]))
+    return prefixes
