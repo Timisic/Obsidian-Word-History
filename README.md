@@ -3,9 +3,8 @@
 一个本地优先的小工具：
 它会直接读取你的 **Obsidian 仓库的 Git 历史**，按你当前 `novel-word-count` 的统计口径重建字数变化，并生成：
 
-- `analysis.json`：结构化分析结果
+- `analysis.json`：结构化分析结果，方便后续自动化或二次处理
 - `chart.svg`：主图矢量产物，风格尽量贴近 Star History
-- `report.html`：本地离线报告页
 
 当前默认面向你的 vault：`/Users/hong/Obsidian Notes`
 
@@ -52,7 +51,7 @@
 - 不依赖在线服务
 - 不依赖 GitHub API
 - 只要本地 `.git` 历史还在，就能重建
-- 输出的 `report.html` / `chart.svg` 都可以离线打开
+- 输出的 `analysis.json` / `chart.svg` 都可以离线保存、离线打开与二次处理
 
 ---
 
@@ -95,17 +94,11 @@
 - `recent_active_notes_30d`
 
 ### `chart.svg`
-主图矢量产物。
+主图矢量产物，也是当前默认交付物。
 适合：
 - 直接打开看
-- 插到别的页面里
+- 插到 README 或别的页面里
 - 后续继续二次处理
-
-### `report.html`
-一个本地离线报告页，包含：
-- 总字数趋势图（引用 `chart.svg`）
-- 最近 30 天更新最频繁内容列表
-- 基本摘要信息
 
 ---
 
@@ -123,15 +116,10 @@ PYTHONPATH=. python3 -m obsidian_word_history build \
 
 - `out/analysis.json`
 - `out/chart.svg`
-- `out/report.html`
 
-执行完成后，可以直接打开：
+当前默认不再额外生成 `report.html`，以便把输出契约保持在 `analysis.json` + `chart.svg` 这两个稳定产物上。
 
-```bash
-open /Users/hong/Downloads/obsidian-word-history-tool/out/report.html
-```
-
-或者直接看主图：
+执行完成后，可以直接看主图：
 
 ```bash
 open /Users/hong/Downloads/obsidian-word-history-tool/out/chart.svg
@@ -226,7 +214,7 @@ obsidian_word_history/
   analysis.py      # Git 历史回放与数据分析
   cli.py           # 命令行入口
   counting.py      # 字数统计口径
-  render.py        # chart.svg / report.html 渲染
+  render.py        # chart.svg 渲染
   font_data.py     # Star History 使用的嵌入字体资源
 
 tests/

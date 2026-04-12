@@ -1,4 +1,4 @@
-"""CLI for building a local word-history report."""
+"""CLI for building local word-history artifacts."""
 
 from __future__ import annotations
 
@@ -10,13 +10,12 @@ from pathlib import Path
 
 from .analysis import analyze_vault_history
 from .counting import CountConfig
-from .render import render_chart_svg, render_report_html
+from .render import render_chart_svg
 
 
 @dataclass(frozen=True)
 class ReportPaths:
     analysis_json: Path
-    report_html: Path
     chart_svg: Path
 
 
@@ -37,16 +36,13 @@ def build_report(
     analysis["vault_path"] = str(vault)
 
     analysis_path = output_dir / "analysis.json"
-    report_path = output_dir / "report.html"
     chart_svg_path = output_dir / "chart.svg"
 
     analysis_path.write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
     chart_svg_path.write_text(render_chart_svg(analysis), encoding="utf-8")
-    report_path.write_text(render_report_html(analysis), encoding="utf-8")
 
     return ReportPaths(
         analysis_json=analysis_path,
-        report_html=report_path,
         chart_svg=chart_svg_path,
     )
 
@@ -55,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build a local Obsidian Git word-history report.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    build = subparsers.add_parser("build", help="Replay Git history and generate analysis.json + chart.svg + report.html")
+    build = subparsers.add_parser("build", help="Replay Git history and generate analysis.json + chart.svg")
     build.add_argument("--vault", required=True, help="Path to the Git-backed Obsidian vault")
     build.add_argument("--out", default="out", help="Directory to write report output (default: ./out)")
     build.add_argument("--generated-at", help="Override generated_at timestamp in ISO-8601 format")
@@ -103,7 +99,6 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "analysis_json": str(paths.analysis_json),
                     "chart_svg": str(paths.chart_svg),
-                    "report_html": str(paths.report_html),
                 },
                 ensure_ascii=False,
             )

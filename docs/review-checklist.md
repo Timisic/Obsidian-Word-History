@@ -8,11 +8,11 @@ As of 2026-04-12, the repository contains the V1 implementation plus the approve
 
 ## Product contract
 
-- [ ] Architecture stays Python CLI + static HTML
+- [ ] Architecture stays Python CLI + static SVG artifacts
 - [ ] Analysis is replay-first; cache remains optional and non-authoritative
 - [ ] `analysis.json` is the canonical output contract
-- [ ] `report.html` renders from `analysis.json` instead of recomputing history
-- [ ] Homepage contains exactly three primary blocks
+- [ ] Output contract stays focused on `analysis.json` + `chart.svg`
+- [ ] README and CLI output both describe the same two generated artifacts
 - [ ] Rename behavior is documented as path-based split history in V1
 
 ## Counting and data rules
@@ -20,16 +20,16 @@ As of 2026-04-12, the repository contains the V1 implementation plus the approve
 - [ ] Frontmatter trimming matches documented parity rules
 - [ ] Word formula is `spaceDelimitedWordCount + cjkWordCount`
 - [ ] Exclusion toggles exist even if current validation keeps them disabled
-- [ ] Daily net additions are aggregated by commit date
-- [ ] Top notes are ranked by historical cumulative net growth, not current total
+- [ ] Recent-active ranking uses last-30-day Git touch frequency
+- [ ] `chart.svg` remains the primary presentation artifact
 
 ## Test coverage gate
 
 - [ ] Unit fixtures cover English, CJK, mixed text, frontmatter, links, footnotes, comments, and fenced code blocks
 - [ ] Toggle tests verify each exclusion changes counts in the expected direction
 - [ ] Integration tests replay a temporary Git repo with same-day commits and rename/deletion behavior
-- [ ] Rendering tests verify exactly three homepage sections
-- [ ] Renderer consistency tests prove `report.html` can be rebuilt from the same `analysis.json`
+- [ ] Rendering tests verify `chart.svg` structure without remote dependencies
+- [ ] CLI integration tests prove `report.html` is not regenerated accidentally
 - [ ] Real-vault verification is recorded or remaining gaps are explicitly called out
 
 ## Quality review prompts
@@ -37,25 +37,23 @@ As of 2026-04-12, the repository contains the V1 implementation plus the approve
 - [ ] Is the analyzer deterministic for the same vault state and settings?
 - [ ] Are parser/counting rules isolated in a dedicated module with explicit tests?
 - [ ] Does the renderer avoid network dependencies?
-- [ ] Are V1 limitations visible in both README and generated report copy?
+- [ ] Are V1 limitations visible in the README and SVG-first output contract?
 - [ ] Does the implementation avoid hidden rename-lineage logic not approved for V1?
 
 ## Suggested verification commands
 
-Replace placeholders with actual project commands once implementation lands:
-
 ```bash
-# Lint
-<lint-command>
+# Static syntax check
+python3 -m py_compile obsidian_word_history/*.py tests/*.py
 
 # Tests
-<test-command>
+python3 -m unittest discover -s tests -v
 
 # Type / static check
-<typecheck-command>
+# No dedicated type checker is configured in this repo today; use LSP diagnostics / py_compile.
 
 # End-to-end build
-python -m obsidian_word_history build \
+PYTHONPATH=. python3 -m obsidian_word_history build \
   --vault "/Users/hong/Obsidian Notes" \
   --out "/tmp/obsidian-word-history-report"
 ```
