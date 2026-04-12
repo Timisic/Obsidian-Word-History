@@ -1,0 +1,70 @@
+{
+  "active": true,
+  "mode": "team",
+  "iteration": 0,
+  "max_iterations": 50,
+  "current_phase": "team-exec",
+  "task_description": "Implement two parallel tracks in this repo: (1) make the chart renderer much closer to Star History's original implementation, reusing the open-source chart structure and visual logic as far as practical while keeping SVG as the primary output; (2) write a concise but reliable GitHub Actions setup guide for the two-repo arrangement where Obsidian Notes is one repo and this tool repo is another, including exactly what repos, secrets, workflow location, checkout strategy, and update flow are needed; (3) verify and review the integrated result. Preserve SVG-only output, keep README aligned, and produce concrete verification evidence.",
+  "started_at": "2026-04-12T11:44:30.908Z",
+  "tmux_pane_id": "%45",
+  "tmux_pane_set_at": "2026-04-12T11:44:30.908Z",
+  "team_name": "implement-two-parallel-tracks",
+  "agent_count": 3,
+  "agent_types": "executor",
+  "available_agent_types": [
+    "analyst",
+    "api-reviewer",
+    "architect",
+    "build-fixer",
+    "code-reviewer",
+    "code-simplifier",
+    "critic",
+    "debugger",
+    "dependency-expert",
+    "designer",
+    "executor",
+    "explore",
+    "explore-harness",
+    "git-master",
+    "information-architect",
+    "performance-reviewer",
+    "planner",
+    "product-analyst",
+    "product-manager",
+    "qa-tester",
+    "quality-reviewer",
+    "quality-strategist",
+    "researcher",
+    "security-reviewer",
+    "sisyphus-lite",
+    "style-reviewer",
+    "team-executor",
+    "team-orchestrator",
+    "test-engineer",
+    "ux-researcher",
+    "verifier",
+    "vision",
+    "writer"
+  ],
+  "staffing_summary": "quality-reviewer x1 (primary delivery lane, medium reasoning); test-engineer x1 (verification + regression lane, medium reasoning); designer x1 (specialist support lane, high reasoning)",
+  "staffing_allocations": [
+    {
+      "role": "quality-reviewer",
+      "count": 1,
+      "reason": "primary delivery lane",
+      "reasoningEffort": "medium"
+    },
+    {
+      "role": "test-engineer",
+      "count": 1,
+      "reason": "verification + regression lane",
+      "reasoningEffort": "medium"
+    },
+    {
+      "role": "designer",
+      "count": 1,
+      "reason": "specialist support lane",
+      "reasoningEffort": "high"
+    }
+  ]
+}

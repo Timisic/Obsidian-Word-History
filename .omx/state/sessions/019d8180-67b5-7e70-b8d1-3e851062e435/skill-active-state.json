@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "active": true,
+  "skill": "team",
+  "keyword": "",
+  "phase": "starting",
+  "activated_at": "2026-04-12T07:45:06.089Z",
+  "updated_at": "2026-04-12T11:44:30.910Z",
+  "source": "startMode",
+  "active_skills": [
+    {
+      "skill": "team",
+      "phase": "starting",
+      "active": true,
+      "activated_at": "2026-04-12T07:45:06.089Z",
+      "updated_at": "2026-04-12T11:44:30.910Z"
+    },
+    {
+      "skill": "ultrawork",
+      "phase": "worker-1 task 1 startup",
+      "active": true,
+      "activated_at": "2026-04-12T11:43:46.345Z",
+      "updated_at": "2026-04-12T11:43:46.345Z",
+      "session_id": "019d8180-67b5-7e70-b8d1-3e851062e435"
+    }
+  ]
+}
