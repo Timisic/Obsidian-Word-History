@@ -2,8 +2,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_VAULT="/Users/hong/Obsidian Notes"
-DEFAULT_CHART="/Users/hong/Obsidian Notes/Reference/chart.svg"
+
+if [[ -f "$ROOT_DIR/.env.local" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env.local"
+  set +a
+fi
+
+DEFAULT_VAULT="${OBSIDIAN_WORD_HISTORY_VAULT:-$HOME/Documents/ObsidianVault}"
+DEFAULT_CHART="${OBSIDIAN_WORD_HISTORY_CHART:-$DEFAULT_VAULT/Reference/chart.svg}"
 
 VAULT_PATH="${1:-$DEFAULT_VAULT}"
 CHART_PATH="${2:-$DEFAULT_CHART}"

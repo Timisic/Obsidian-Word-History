@@ -1,61 +1,74 @@
 # Obsidian Word History Tool
 
-Lightweight local tool for generating a word-history SVG from a Git-backed Obsidian vault.
+[English README](README.en.md)
 
-## One Command
+这是一个轻量本地工具：从 Git 管理的 Obsidian vault 中回放 Markdown 历史，并生成一张词数变化 SVG 图表。
+
+## 示例图
+
+![Obsidian word history example](assets/example-chart.svg)
+
+## 快速开始
+
+先配置本地环境和输出路径：
+
+```bash
+./scripts/setup_env.sh "$HOME/Documents/ObsidianVault" "$HOME/Documents/ObsidianVault/Reference/chart.svg"
+```
+
+之后刷新图表只需要运行：
 
 ```bash
 ./scripts/generate_chart.sh
 ```
 
-By default this reads:
-
-```text
-/Users/hong/Obsidian Notes
-```
-
-and overwrites:
-
-```text
-/Users/hong/Obsidian Notes/Reference/chart.svg
-```
-
-Progress is printed to stderr while Git history is replayed. The final stdout line is machine-readable JSON:
+生成脚本会显示进度，并在完成后输出一行 JSON：
 
 ```json
-{"chart_svg": "/Users/hong/Obsidian Notes/Reference/chart.svg"}
+{"chart_svg": "/path/to/your/vault/Reference/chart.svg"}
 ```
 
-## Custom Paths
+## 不写本地配置，直接指定路径
 
 ```bash
 ./scripts/generate_chart.sh "<vault_path>" "<chart_svg_path>"
 ```
 
-## Direct Python CLI
+## 直接使用 Python CLI
 
 ```bash
 PYTHONPATH=. python3 -m obsidian_word_history build \
-  --vault "/Users/hong/Obsidian Notes" \
+  --vault "<vault_path>" \
   --out out
 ```
 
-This writes:
+输出文件：
 
 - `out/analysis.json`
 - `out/chart.svg`
 
-## What Is Kept
+## 本地配置
 
-- Git history replay for the Obsidian vault
-- Markdown/CJK-aware word counting
-- Python SVG rendering
-- A single shell entrypoint for daily use
-- Regression tests for counting, analysis, rendering, and script behavior
+`./scripts/setup_env.sh` 会创建 `.venv`，并生成 `.env.local`：
 
-## Notes
+```bash
+OBSIDIAN_WORD_HISTORY_VAULT="/path/to/your/vault"
+OBSIDIAN_WORD_HISTORY_CHART="/path/to/your/vault/Reference/chart.svg"
+```
 
-- The vault must be a Git repository.
-- Rename handling remains path-based; lineage is not merged across paths.
-- The tool uses Python standard library modules plus the local `git` executable.
-- No dashboard, Node, pnpm, or vendored renderer is required for the light workflow.
+`.env.local` 已被 Git 忽略，适合保存你自己的 vault 路径和输出路径。
+
+## 保留的能力
+
+- 回放 Obsidian vault 的 Git 历史
+- Markdown 与 CJK 友好的词数统计
+- 纯 Python SVG 渲染
+- 一个日常使用的一键生成脚本
+- 覆盖统计、分析、渲染和脚本行为的回归测试
+
+## 注意事项
+
+- vault 必须是 Git 仓库。
+- 重命名处理仍然基于路径；不同路径之间不会合并历史 lineage。
+- 运行依赖是 Python 标准库和本地 `git` 命令。
+- light 版本不需要 dashboard、Node、pnpm 或 vendored renderer。
