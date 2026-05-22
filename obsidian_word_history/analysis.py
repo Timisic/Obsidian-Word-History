@@ -64,7 +64,6 @@ def analyze_vault_history(vault_path: Path | str, config: CountConfig | None = N
 
     return {
         "schema_version": "1",
-        "dashboard_version": "1",
         "renderer_version": "1",
         "generated_at": _utc_now_iso(),
         "vault_path": str(repo_path),

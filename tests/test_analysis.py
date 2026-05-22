@@ -69,7 +69,7 @@ class AnalysisTests(unittest.TestCase):
             ],
         )
 
-    def test_build_note_metrics_exposes_dashboard_friendly_fields(self) -> None:
+    def test_build_note_metrics_exposes_report_fields(self) -> None:
         note_totals = {
             "root.md": [2, 4, 5],
             "folder/alpha.md": [0, 3, 7],

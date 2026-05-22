@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from obsidian_word_history.analysis import analyze_vault_history
-from obsidian_word_history.cli import build_report, prepare_dashboard_data_for_serve
+from obsidian_word_history.cli import build_report
 from obsidian_word_history.render import _build_time_mapper, _build_time_ticks
 
 
@@ -115,11 +115,9 @@ class CliIntegrationTests(unittest.TestCase):
             chart_svg = paths.chart_svg.read_text(encoding="utf-8")
 
             self.assertEqual(paths.analysis_json, out_dir / "analysis.json")
-            self.assertEqual(paths.dashboard_data_json, out_dir / "dashboard-data.json")
             self.assertEqual(paths.chart_svg, out_dir / "chart.svg")
-            self.assertEqual(tuple(paths.__dataclass_fields__), ("analysis_json", "dashboard_data_json", "chart_svg"))
+            self.assertEqual(tuple(paths.__dataclass_fields__), ("analysis_json", "chart_svg"))
             self.assertEqual(analysis["schema_version"], "1")
-            self.assertEqual(analysis["dashboard_version"], "1")
             self.assertEqual(analysis["generated_at"], "2026-01-02T00:00:00+00:00")
             self.assertEqual(analysis["renderer_version"], "1")
             self.assertEqual(analysis["head_commit"], self._git(repo, "rev-parse", "HEAD").strip())
@@ -133,8 +131,6 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertEqual(chart_svg.count('endpoint-dot'), 1)
             self.assertNotIn("obsidian-word-history", chart_svg)
             self.assertFalse((out_dir / "chart.png").exists())
-            self.assertFalse((out_dir / "dashboard.html").exists())
-            self.assertTrue((out_dir / "dashboard-data.json").exists())
 
     def test_module_cli_build_command_succeeds(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -171,13 +167,11 @@ class CliIntegrationTests(unittest.TestCase):
 
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertTrue((out_dir / "analysis.json").exists())
-            self.assertTrue((out_dir / "dashboard-data.json").exists())
             self.assertTrue((out_dir / "chart.svg").exists())
-            self.assertFalse((out_dir / "dashboard.html").exists())
             self.assertFalse((out_dir / "chart.png").exists())
 
             payload = json.loads(completed.stdout)
-            self.assertEqual(sorted(payload), ["analysis_json", "chart_svg", "dashboard_data_json"])
+            self.assertEqual(sorted(payload), ["analysis_json", "chart_svg"])
 
     def test_generate_chart_script_overwrites_requested_svg_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -215,20 +209,6 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertIn("==> Target chart:", completed.stderr)
             self.assertIn("[OK] Built chart artifacts", completed.stderr)
             self.assertIn("==> Done", completed.stderr)
-
-    def test_prepare_dashboard_data_for_serve_copies_to_stable_out_path(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo_root = Path(tmpdir) / "repo"
-            analysis_path = Path(tmpdir) / "custom-out" / "dashboard-data.json"
-            repo_root.mkdir()
-            analysis_path.parent.mkdir()
-            analysis_path.write_text('{"ok":true}', encoding="utf-8")
-
-            runtime_path, browser_path = prepare_dashboard_data_for_serve(analysis_path, repo_root=repo_root)
-
-            self.assertEqual(runtime_path, repo_root / "out" / "dashboard-data.json")
-            self.assertEqual(browser_path, "../out/dashboard-data.json")
-            self.assertEqual(runtime_path.read_text(encoding="utf-8"), '{"ok":true}')
 
     def _commit(self, repo: Path, message: str, timestamp: str) -> None:
         env = os.environ.copy()

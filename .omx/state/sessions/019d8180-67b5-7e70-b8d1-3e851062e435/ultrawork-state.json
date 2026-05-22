@@ -1,7 +1,0 @@
-{
-  "active": true,
-  "started_at": "2026-04-12T11:43:00Z",
-  "current_phase": "worker-1 task 1 startup",
-  "iteration": 1,
-  "task_description": "worker-1 executing assigned tasks; starting task 1 chart renderer alignment"
-}
