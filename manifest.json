@@ -1,0 +1,9 @@
+{
+  "id": "word-history",
+  "name": "Word History",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Generate a Star History-style word-count SVG from a Git-backed Obsidian vault.",
+  "author": "Timisic",
+  "isDesktopOnly": true
+}
