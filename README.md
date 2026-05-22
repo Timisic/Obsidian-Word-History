@@ -1,6 +1,6 @@
 # Obsidian Word History Tool
 
-[English README](README.en.md)
+[English](README.en.md)
 
 把 Git 管理的 Obsidian vault 变成一张可长期更新的词数历史 SVG。适合想在 Obsidian 里追踪写作积累、复盘笔记增长，或让 agent 定期生成可嵌入图表的人。
 
