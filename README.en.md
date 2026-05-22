@@ -2,7 +2,7 @@
 
 [中文 README](README.md)
 
-Turn a Git-backed Obsidian vault into a continuously updated word-history growth chart, in a Star History style. This branch can also run as a minimal desktop Obsidian plugin.
+Turn a Git-backed Obsidian vault into a continuously updated word-history growth chart, in a Star History style. This branch is a minimal desktop Obsidian plugin.
 
 ![Obsidian word history example](assets/example-chart.svg)
 
@@ -11,34 +11,39 @@ Turn a Git-backed Obsidian vault into a continuously updated word-history growth
 - **One-command SVG generation**: the output can be embedded directly in Obsidian notes, Canvas, websites, or READMEs.
 - **Incremental analysis**: replay full Git history once, then analyze only new commits.
 - **Chinese-note friendly**: word counting supports Markdown and CJK text.
-- **Lightweight local workflow**: only `git` + `python3`; no Node, dashboard, or external service.
-- **Obsidian plugin shell**: configure the SVG output path, then run manually, every N days, or through Git commit/push hooks.
+- **Lightweight local workflow**: the plugin generates charts in JS and only depends on system `git`; no Python, Node setup, dashboard, or external service.
+- **Minimal configuration**: set one SVG output path, then run manually, every N days, or after Git HEAD changes.
 
 ## Install
 
 After the user provides the vault path, run this single command:
 
 ```bash
-git clone -b obsidian-plugin-light https://github.com/Timisic/Obsidian-Word-History.git "<vault_path>/.obsidian/plugins/word-history" && cd "<vault_path>/.obsidian/plugins/word-history" && ./scripts/setup_env.sh "<vault_path>" "<vault_path>/Reference/chart.svg"
+git clone -b obsidian-plugin-light https://github.com/Timisic/Obsidian-Word-History.git "<vault_path>/.obsidian/plugins/word-history"
 ```
 
 ```bash
 git clone -b obsidian-plugin-light https://github.com/Timisic/Obsidian-Word-History.git "$HOME/Documents/ObsidianVault/.obsidian/plugins/word-history"
-cd "$HOME/Documents/ObsidianVault/.obsidian/plugins/word-history"
-./scripts/setup_env.sh "$HOME/Documents/ObsidianVault" "$HOME/Documents/ObsidianVault/Reference/chart.svg"
 ```
 
-`setup_env.sh` creates `.venv` and writes an ignored `.env.local` file for the vault path, SVG output path, and local cache path.
-Then enable **Word History** in Obsidian settings.
+Then enable **Word History** in Obsidian settings and set the output SVG path, for example `Reference/chart.svg`.
 
 ## Run
 
-```bash
-./scripts/generate_chart.sh
+In Obsidian, open the command palette and run:
+
+```text
+Word History: Generate word history chart
 ```
+
+You can also choose an update mode in the plugin settings:
+
+- `Manual`: generate only when triggered manually.
+- `Every N days`: auto-generate while Obsidian is open.
+- `On Git changes`: auto-generate when the Git HEAD changes.
 
 ## Notes
 
 - The vault must be a Git repository.
-- The default cache is `.cache/word-history-cache.json`.
+- The default cache is `.cache/word-history-cache.json` inside the plugin directory.
 - If the cache is missing, count settings change, or Git history is rewritten by rebase/reset, the tool rebuilds from scratch.

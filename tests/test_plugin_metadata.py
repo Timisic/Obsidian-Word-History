@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -20,14 +23,107 @@ class ObsidianPluginMetadataTests(unittest.TestCase):
         self.assertIn("updateMode", main_js)
         self.assertIn("intervalDays", main_js)
         self.assertIn("generate-word-history-chart", main_js)
-        self.assertIn("install-word-history-git-hooks", main_js)
-        self.assertIn("generate_chart.sh", main_js)
-        self.assertIn("post-commit", main_js)
-        self.assertIn("pre-push", main_js)
-        self.assertIn("BEGIN Word History", main_js)
-        self.assertIn('value === "git-hooks"', main_js)
+        self.assertIn("check-word-history-git-changes", main_js)
+        self.assertIn("buildWordHistory", main_js)
+        self.assertNotIn("generate_chart.sh", main_js)
+        self.assertNotIn("python3", main_js)
+        self.assertNotIn("obsidian_word_history", main_js)
         self.assertNotIn("/Users/", main_js)
         self.assertNotIn("Obsidian" + " Notes", main_js)
+
+    def test_js_generator_builds_svg_and_incremental_cache_without_python(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir) / "vault"
+            output_svg = Path(tmpdir) / "chart.svg"
+            cache_json = Path(tmpdir) / "cache.json"
+            repo.mkdir()
+            self._git(repo, "init")
+            self._git(repo, "config", "user.name", "Test User")
+            self._git(repo, "config", "user.email", "test@example.com")
+
+            (repo / "note.md").write_text("hello 世界", encoding="utf-8")
+            self._commit(repo, "initial", "2026-01-01T08:00:00+00:00")
+
+            first = self._run_js_generator(repo, output_svg, cache_json)
+            self.assertEqual(first["currentTotalWords"], 3)
+            self.assertEqual(first["wordsAddedSinceLastRun"], 3)
+            svg = output_svg.read_text(encoding="utf-8")
+            self.assertIn("Word History", svg)
+            self.assertIn('class="xaxis"', svg)
+            self.assertIn('class="yaxis"', svg)
+            self.assertIn('class="chart-line"', svg)
+            self.assertTrue(cache_json.exists())
+
+            second = self._run_js_generator(repo, output_svg, cache_json)
+            self.assertEqual(second["currentTotalWords"], 3)
+            self.assertEqual(second["wordsAddedSinceLastRun"], 0)
+
+            (repo / "note.md").write_text("hello brave 世界", encoding="utf-8")
+            self._commit(repo, "expand", "2026-01-02T08:00:00+00:00")
+            third = self._run_js_generator(repo, output_svg, cache_json)
+            self.assertEqual(third["currentTotalWords"], 4)
+            self.assertEqual(third["wordsAddedSinceLastRun"], 1)
+
+    def _run_js_generator(self, repo: Path, output_svg: Path, cache_json: Path) -> dict:
+        node_code = r"""
+const Module = require("module");
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+  if (request === "obsidian") {
+    return {
+      Notice: class {},
+      Plugin: class {},
+      PluginSettingTab: class {},
+      Setting: class {},
+    };
+  }
+  return originalLoad.apply(this, arguments);
+};
+const plugin = require(process.argv[1]);
+plugin.__test.buildWordHistory(process.argv[2], process.argv[3], process.argv[4])
+  .then((result) => {
+    console.log(JSON.stringify({
+      wordsAddedSinceLastRun: result.wordsAddedSinceLastRun,
+      currentTotalWords: result.currentTotalWords,
+    }));
+  })
+  .catch((error) => {
+    console.error(error.stack || error.message);
+    process.exit(1);
+  });
+"""
+        completed = subprocess.run(
+            [
+                "node",
+                "-e",
+                node_code,
+                str(Path.cwd() / "main.js"),
+                str(repo),
+                str(output_svg),
+                str(cache_json),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return json.loads(completed.stdout)
+
+    def _commit(self, repo: Path, message: str, timestamp: str) -> None:
+        env = os.environ.copy()
+        env["GIT_AUTHOR_DATE"] = timestamp
+        env["GIT_COMMITTER_DATE"] = timestamp
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, env=env)
+        subprocess.run(["git", "-C", str(repo), "commit", "-m", message], check=True, env=env, capture_output=True)
+
+    def _git(self, repo: Path, *args: str) -> str:
+        completed = subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout
 
 
 if __name__ == "__main__":
