@@ -124,6 +124,56 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertIn("series", analysis)
             self.assertEqual(analysis["summary"]["recent_30d_active_notes"], 3)
 
+    def test_analyzer_cache_replays_only_new_commits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir) / "vault"
+            cache_path = Path(tmpdir) / "cache" / "history.json"
+            repo.mkdir()
+            self._git(repo, "init")
+            self._git(repo, "config", "user.name", "Test User")
+            self._git(repo, "config", "user.email", "test@example.com")
+
+            (repo / "note.md").write_text("alpha beta", encoding="utf-8")
+            self._commit(repo, "initial", "2026-01-01T08:00:00+00:00")
+
+            first = analyze_vault_history(repo, cache_path=cache_path)
+            self.assertEqual([entry["total_words"] for entry in first["commit_trend"]], [2])
+            self.assertTrue(cache_path.exists())
+
+            (repo / "note.md").write_text("alpha beta gamma delta", encoding="utf-8")
+            self._commit(repo, "expand", "2026-01-02T08:00:00+00:00")
+
+            second = analyze_vault_history(repo, cache_path=cache_path)
+            fresh = analyze_vault_history(repo)
+
+            self.assertEqual(second["commit_trend"], fresh["commit_trend"])
+            self.assertEqual(second["summary"]["commit_count"], 2)
+            self.assertEqual(second["summary"]["latest_total_words"], 4)
+
+            cache = json.loads(cache_path.read_text(encoding="utf-8"))
+            self.assertEqual(cache["head_commit"], self._git(repo, "rev-parse", "HEAD").strip())
+            self.assertEqual(len(cache["state"]["commit_trend"]), 2)
+
+    def test_analyzer_rebuilds_when_cache_state_is_invalid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir) / "vault"
+            cache_path = Path(tmpdir) / "cache" / "history.json"
+            repo.mkdir()
+            cache_path.parent.mkdir()
+            self._git(repo, "init")
+            self._git(repo, "config", "user.name", "Test User")
+            self._git(repo, "config", "user.email", "test@example.com")
+
+            (repo / "note.md").write_text("alpha beta", encoding="utf-8")
+            self._commit(repo, "initial", "2026-01-01T08:00:00+00:00")
+            cache_path.write_text('{"schema_version": "1", "state": {}}', encoding="utf-8")
+
+            analysis = analyze_vault_history(repo, cache_path=cache_path)
+
+            self.assertEqual([entry["total_words"] for entry in analysis["commit_trend"]], [2])
+            cache = json.loads(cache_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(cache["state"]["commit_trend"]), 1)
+
     def test_build_report_writes_analysis_and_svg(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir) / "vault"
@@ -203,6 +253,7 @@ class CliIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir) / "vault"
             target_chart = Path(tmpdir) / "Reference" / "chart.svg"
+            cache_path = Path(tmpdir) / "cache" / "history.json"
             repo.mkdir()
             target_chart.parent.mkdir()
             target_chart.write_text("stale chart", encoding="utf-8")
@@ -218,6 +269,7 @@ class CliIntegrationTests(unittest.TestCase):
                     str(Path.cwd() / "scripts" / "generate_chart.sh"),
                     str(repo),
                     str(target_chart),
+                    str(cache_path),
                 ],
                 check=False,
                 capture_output=True,
@@ -230,9 +282,11 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertIn("<svg", chart_svg)
             self.assertIn("Word History", chart_svg)
             self.assertNotIn("stale chart", chart_svg)
+            self.assertTrue(cache_path.exists())
             self.assertEqual(str(target_chart), json.loads(completed.stdout)["chart_svg"])
             self.assertIn("==> Vault:", completed.stderr)
             self.assertIn("==> Target chart:", completed.stderr)
+            self.assertIn("==> Cache:", completed.stderr)
             self.assertIn("[OK] Built chart artifacts", completed.stderr)
             self.assertIn("==> Done", completed.stderr)
 

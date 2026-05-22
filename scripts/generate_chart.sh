@@ -12,9 +12,11 @@ fi
 
 DEFAULT_VAULT="${OBSIDIAN_WORD_HISTORY_VAULT:-$HOME/Documents/ObsidianVault}"
 DEFAULT_CHART="${OBSIDIAN_WORD_HISTORY_CHART:-$DEFAULT_VAULT/Reference/chart.svg}"
+DEFAULT_CACHE="${OBSIDIAN_WORD_HISTORY_CACHE:-$ROOT_DIR/.cache/word-history-cache.json}"
 
 VAULT_PATH="${1:-$DEFAULT_VAULT}"
 CHART_PATH="${2:-$DEFAULT_CHART}"
+CACHE_PATH="${3:-$DEFAULT_CACHE}"
 PYTHON_CMD="${PYTHON_BIN:-}"
 
 log() {
@@ -61,12 +63,14 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 log "==> Vault: $VAULT_PATH"
 log "==> Target chart: $CHART_PATH"
+log "==> Cache: $CACHE_PATH"
 log "==> Python: $PYTHON_CMD"
 
-start_spinner "Reading Git history and rendering chart"
+start_spinner "Reading cached Git history and rendering chart"
 if PYTHONPATH=. "$PYTHON_CMD" -m obsidian_word_history build \
   --vault "$VAULT_PATH" \
   --out "$TMP_DIR" \
+  --cache "$CACHE_PATH" \
   >"$TMP_DIR/build-result.json" \
   2>"$TMP_DIR/build-error.log"; then
   stop_spinner "OK" "Built chart artifacts"

@@ -26,12 +26,13 @@ def build_report(
     generated_at: str | None = None,
     config: CountConfig | None = None,
     top_n: int = 10,
+    cache_path: Path | str | None = None,
 ) -> ReportPaths:
     vault = Path(vault_path).expanduser()
     output_dir = Path(out_dir).expanduser() if out_dir is not None else Path.cwd() / "out"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    analysis = analyze_vault_history(vault, config=config, top_n=top_n)
+    analysis = analyze_vault_history(vault, config=config, top_n=top_n, cache_path=cache_path)
     analysis["generated_at"] = generated_at or _utc_now_iso()
     analysis["vault_path"] = str(vault)
 
@@ -54,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     build = subparsers.add_parser("build", help="Replay Git history and generate analysis.json + chart.svg")
     build.add_argument("--vault", required=True, help="Path to the Git-backed Obsidian vault")
     build.add_argument("--out", default="out", help="Directory to write report output (default: ./out)")
+    build.add_argument("--cache", help="Path to an incremental history cache JSON file")
     build.add_argument("--generated-at", help="Override generated_at timestamp in ISO-8601 format")
     build.add_argument("--top-n", type=int, default=10, help="How many recent active notes to include")
     build.add_argument("--exclude-comments", action="store_true", help="Exclude Obsidian/HTML comments from counts")
@@ -78,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
             generated_at=args.generated_at,
             config=_count_config_from_args(args),
             top_n=args.top_n,
+            cache_path=args.cache,
         )
         print(
             json.dumps(

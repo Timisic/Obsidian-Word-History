@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+import json
 from pathlib import Path
 import subprocess
 from typing import Iterable, Literal
@@ -12,6 +13,7 @@ from typing import Iterable, Literal
 from .counting import CountConfig, count_countable_text, is_countable_path, load_count_config
 
 Period = Literal["day", "week", "month"]
+CACHE_SCHEMA_VERSION = "1"
 
 
 @dataclass(frozen=True)
@@ -20,16 +22,39 @@ class CommitRecord:
     timestamp: str
 
 
-def analyze_vault_history(vault_path: Path | str, config: CountConfig | None = None, top_n: int = 10) -> dict:
+def analyze_vault_history(
+    vault_path: Path | str,
+    config: CountConfig | None = None,
+    top_n: int = 10,
+    cache_path: Path | str | None = None,
+) -> dict:
     repo_path = Path(vault_path).expanduser().resolve()
     effective_config = config or load_count_config(repo_path)
-    commits = _list_commits(repo_path)
     head_commit = _git(repo_path, "rev-parse", "HEAD").strip()
+    cached_state = _load_incremental_cache(repo_path, effective_config, head_commit, cache_path)
 
-    current_counts: dict[str, int] = {}
-    note_totals: dict[str, list[int]] = {}
-    note_activity: dict[str, list[str]] = defaultdict(list)
-    commit_trend: list[dict[str, object]] = []
+    if cached_state is None:
+        commits = _list_commits(repo_path)
+        current_counts: dict[str, int] = {}
+        note_totals: dict[str, list[int]] = {}
+        note_activity: dict[str, list[str]] = defaultdict(list)
+        commit_trend: list[dict[str, object]] = []
+    else:
+        commits = _list_commits(repo_path, rev_range=f"{cached_state['head_commit']}..HEAD")
+        state = cached_state["state"]
+        current_counts = {str(path): int(count) for path, count in dict(state["current_counts"]).items()}
+        note_totals = {
+            str(path): [int(value) for value in values]
+            for path, values in dict(state["note_totals"]).items()
+        }
+        note_activity = defaultdict(
+            list,
+            {
+                str(path): [str(timestamp) for timestamp in timestamps]
+                for path, timestamps in dict(state["note_activity"]).items()
+            },
+        )
+        commit_trend = [dict(entry) for entry in list(state["commit_trend"])]
 
     for commit in commits:
         touched_paths = _apply_commit_changes(repo_path, commit.sha, current_counts, effective_config)
@@ -48,6 +73,17 @@ def analyze_vault_history(vault_path: Path | str, config: CountConfig | None = N
                 "tracked_notes": len(current_counts),
             }
         )
+
+    _write_incremental_cache(
+        repo_path,
+        effective_config,
+        head_commit,
+        cache_path,
+        current_counts=current_counts,
+        note_totals=note_totals,
+        note_activity=note_activity,
+        commit_trend=commit_trend,
+    )
 
     as_of_timestamp = str(commit_trend[-1]["timestamp"]) if commit_trend else _utc_now_iso()
     daily_deltas = aggregate_daily_deltas(commit_trend)
@@ -255,8 +291,11 @@ def build_folder_metrics(note_metrics: Iterable[dict[str, object]]) -> list[dict
     return items
 
 
-def _list_commits(repo_path: Path) -> list[CommitRecord]:
-    output = _git(repo_path, "log", "--first-parent", "--reverse", "--format=%H%x00%cI")
+def _list_commits(repo_path: Path, rev_range: str | None = None) -> list[CommitRecord]:
+    args = ["log", "--first-parent", "--reverse", "--format=%H%x00%cI"]
+    if rev_range is not None:
+        args.append(rev_range)
+    output = _git(repo_path, *args)
     if not output.strip():
         return []
     entries = []
@@ -264,6 +303,89 @@ def _list_commits(repo_path: Path) -> list[CommitRecord]:
         sha, timestamp = line.split("\x00", 1)
         entries.append(CommitRecord(sha=sha, timestamp=timestamp))
     return entries
+
+
+def _load_incremental_cache(
+    repo_path: Path,
+    config: CountConfig,
+    head_commit: str,
+    cache_path: Path | str | None,
+) -> dict[str, object] | None:
+    if cache_path is None:
+        return None
+    path = Path(cache_path).expanduser()
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    cached_head = str(payload.get("head_commit", ""))
+    state = payload.get("state")
+    if (
+        payload.get("schema_version") != CACHE_SCHEMA_VERSION
+        or payload.get("vault_path") != str(repo_path)
+        or payload.get("settings") != config.to_dict()
+        or not cached_head
+        or not isinstance(state, dict)
+        or not _has_cache_state_shape(state)
+    ):
+        return None
+    if cached_head == head_commit:
+        return payload
+    if not _is_ancestor(repo_path, cached_head, head_commit):
+        return None
+    return payload
+
+
+def _has_cache_state_shape(state: dict[str, object]) -> bool:
+    return all(
+        isinstance(state.get(key), dict if key != "commit_trend" else list)
+        for key in ("current_counts", "note_totals", "note_activity", "commit_trend")
+    )
+
+
+def _write_incremental_cache(
+    repo_path: Path,
+    config: CountConfig,
+    head_commit: str,
+    cache_path: Path | str | None,
+    *,
+    current_counts: dict[str, int],
+    note_totals: dict[str, list[int]],
+    note_activity: dict[str, list[str]],
+    commit_trend: list[dict[str, object]],
+) -> None:
+    if cache_path is None:
+        return
+    path = Path(cache_path).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": CACHE_SCHEMA_VERSION,
+        "vault_path": str(repo_path),
+        "settings": config.to_dict(),
+        "head_commit": head_commit,
+        "state": {
+            "current_counts": current_counts,
+            "note_totals": note_totals,
+            "note_activity": dict(note_activity),
+            "commit_trend": commit_trend,
+        },
+    }
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp_path.replace(path)
+
+
+def _is_ancestor(repo_path: Path, ancestor: str, descendant: str) -> bool:
+    completed = subprocess.run(
+        ["git", "-C", str(repo_path), "merge-base", "--is-ancestor", ancestor, descendant],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return completed.returncode == 0
 
 
 def _apply_commit_changes(repo_path: Path, commit_sha: str, current_counts: dict[str, int], config: CountConfig) -> list[str]:

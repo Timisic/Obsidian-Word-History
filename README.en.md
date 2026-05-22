@@ -28,18 +28,23 @@ The generator prints progress while it runs and ends with one JSON line:
 {"chart_svg": "/path/to/your/vault/Reference/chart.svg"}
 ```
 
+The first run builds a local incremental cache. Later runs analyze only new commits, as long as the Git history has not been rewritten, and then re-render the SVG.
+
 ## Run With Explicit Paths
 
 ```bash
-./scripts/generate_chart.sh "<vault_path>" "<chart_svg_path>"
+./scripts/generate_chart.sh "<vault_path>" "<chart_svg_path>" "<cache_json_path>"
 ```
+
+The third argument is optional. When omitted, the default cache path is `.cache/word-history-cache.json`.
 
 ## Direct Python CLI
 
 ```bash
 PYTHONPATH=. python3 -m obsidian_word_history build \
   --vault "<vault_path>" \
-  --out out
+  --out out \
+  --cache .cache/word-history-cache.json
 ```
 
 This writes:
@@ -54,6 +59,7 @@ This writes:
 ```bash
 OBSIDIAN_WORD_HISTORY_VAULT="/path/to/your/vault"
 OBSIDIAN_WORD_HISTORY_CHART="/path/to/your/vault/Reference/chart.svg"
+OBSIDIAN_WORD_HISTORY_CACHE="/path/to/this/repo/.cache/word-history-cache.json"
 ```
 
 `.env.local` is ignored by Git, so it is the right place for your private vault and output paths.
@@ -64,11 +70,13 @@ OBSIDIAN_WORD_HISTORY_CHART="/path/to/your/vault/Reference/chart.svg"
 - Markdown/CJK-aware word counting
 - Pure Python SVG rendering
 - A single shell entrypoint for daily use
+- JSON-based local incremental caching
 - Regression tests for counting, analysis, rendering, and script behavior
 
 ## Notes
 
 - The vault must be a Git repository.
 - Rename handling remains path-based; lineage is not merged across paths.
+- If the cache is missing, count settings change, or Git history is rewritten by rebase/reset, the tool automatically rebuilds the cache from scratch.
 - The tool uses Python standard library modules plus the local `git` executable.
 - The light workflow does not require a dashboard, Node, pnpm, or a vendored renderer.
