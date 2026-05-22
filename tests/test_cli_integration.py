@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime
@@ -177,6 +178,43 @@ class CliIntegrationTests(unittest.TestCase):
 
             payload = json.loads(completed.stdout)
             self.assertEqual(sorted(payload), ["analysis_json", "chart_svg", "dashboard_data_json"])
+
+    def test_generate_chart_script_overwrites_requested_svg_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir) / "vault"
+            target_chart = Path(tmpdir) / "Reference" / "chart.svg"
+            repo.mkdir()
+            target_chart.parent.mkdir()
+            target_chart.write_text("stale chart", encoding="utf-8")
+            self._git(repo, "init")
+            self._git(repo, "config", "user.name", "Test User")
+            self._git(repo, "config", "user.email", "test@example.com")
+
+            (repo / "note.md").write_text("hello world again", encoding="utf-8")
+            self._commit(repo, "initial", "2026-01-01T08:00:00+00:00")
+
+            completed = subprocess.run(
+                [
+                    str(Path.cwd() / "scripts" / "generate_chart.sh"),
+                    str(repo),
+                    str(target_chart),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHON_BIN": sys.executable},
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            chart_svg = target_chart.read_text(encoding="utf-8")
+            self.assertIn("<svg", chart_svg)
+            self.assertIn("Word History", chart_svg)
+            self.assertNotIn("stale chart", chart_svg)
+            self.assertEqual(str(target_chart), json.loads(completed.stdout)["chart_svg"])
+            self.assertIn("==> Vault:", completed.stderr)
+            self.assertIn("==> Target chart:", completed.stderr)
+            self.assertIn("[OK] Built chart artifacts", completed.stderr)
+            self.assertIn("==> Done", completed.stderr)
 
     def test_prepare_dashboard_data_for_serve_copies_to_stable_out_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

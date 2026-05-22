@@ -28,6 +28,18 @@ PYTHONPATH=. python3 -m obsidian_word_history build \
 - `out/dashboard-data.json`
 - `out/chart.svg`
 
+如果只想更新 Obsidian 里的引用图，运行：
+
+```bash
+./scripts/generate_chart.sh
+```
+
+这个脚本会读取 `/Users/hong/Obsidian Notes`，并覆盖：
+
+```text
+/Users/hong/Obsidian Notes/Reference/chart.svg
+```
+
 打开趋势图：
 
 ```bash
@@ -115,3 +127,14 @@ PYTHONPATH=. python3 -m obsidian_word_history serve \
 - 当前 rename 仍然按 path 处理，不做 lineage 合并。
 - dashboard 前端不依赖外部 CDN 图表库。
 - `serve` 会优先复用已有 `out/dashboard-data.json`，只有数据过期时才重建。
+
+## TODO
+
+- 增加一个**发布用脱敏模式**：
+  - 隐去或替换笔记标题、路径、目录名，尤其是私密内容
+  - 保留总字数趋势、聚合统计、排行榜所需的结构化数据
+  - 让公开展示版本与本地完整版本共存
+- 在不破坏当前输出契约的前提下接入 GitHub Actions：
+  - 本地继续保留完整数据
+  - 发布到 GitHub 的产物默认使用脱敏后的 `dashboard-data.json` / `analysis.json`
+  - 不影响后续自动更新图表与 dashboard 的流水线
