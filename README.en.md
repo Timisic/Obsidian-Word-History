@@ -2,81 +2,44 @@
 
 [中文 README](README.md)
 
-This is a lightweight local tool that replays Markdown history from a Git-backed Obsidian vault and generates a word-history SVG chart.
-
-## Example
+Generate a word-history SVG from a Git-backed Obsidian vault.
 
 ![Obsidian word history example](assets/example-chart.svg)
 
-## Quick Start
-
-Set up the local environment and output path first:
+## Install
 
 ```bash
+git clone https://github.com/Timisic/Obsidian-Word-History.git
+cd Obsidian-Word-History
 ./scripts/setup_env.sh "$HOME/Documents/ObsidianVault" "$HOME/Documents/ObsidianVault/Reference/chart.svg"
 ```
 
-Then refresh the chart with:
+`setup_env.sh` creates `.venv` and writes a local `.env.local`. The file is ignored by Git and stores your vault path, SVG output path, and local cache path.
+
+## Run
 
 ```bash
 ./scripts/generate_chart.sh
 ```
 
-The generator prints progress while it runs and ends with one JSON line:
+The script overwrites the target SVG and prints one summary line:
 
-```json
-{"chart_svg": "/path/to/your/vault/Reference/chart.svg"}
+```text
+新增字数: 0；当前总字数: 344630
 ```
 
-The first run builds a local incremental cache. Later runs analyze only new commits, as long as the Git history has not been rewritten, and then re-render the SVG.
+The first run builds `.cache/word-history-cache.json`. Later runs analyze only new commits. If the cache is missing, count settings change, or Git history is rewritten by rebase/reset, the tool rebuilds the cache from scratch.
 
-## Run With Explicit Paths
+## Agent Install Command
+
+If you are an agent helping a user install this tool, ask for the vault path and run this single command:
 
 ```bash
-./scripts/generate_chart.sh "<vault_path>" "<chart_svg_path>" "<cache_json_path>"
+git clone https://github.com/Timisic/Obsidian-Word-History.git && cd Obsidian-Word-History && ./scripts/setup_env.sh "<vault_path>" "<vault_path>/Reference/chart.svg"
 ```
 
-The third argument is optional. When omitted, the default cache path is `.cache/word-history-cache.json`.
-
-## Direct Python CLI
-
-```bash
-PYTHONPATH=. python3 -m obsidian_word_history build \
-  --vault "<vault_path>" \
-  --out out \
-  --cache .cache/word-history-cache.json
-```
-
-This writes:
-
-- `out/analysis.json`
-- `out/chart.svg`
-
-## Local Configuration
-
-`./scripts/setup_env.sh` creates `.venv` and writes a local `.env.local` file:
-
-```bash
-OBSIDIAN_WORD_HISTORY_VAULT="/path/to/your/vault"
-OBSIDIAN_WORD_HISTORY_CHART="/path/to/your/vault/Reference/chart.svg"
-OBSIDIAN_WORD_HISTORY_CACHE="/path/to/this/repo/.cache/word-history-cache.json"
-```
-
-`.env.local` is ignored by Git, so it is the right place for your private vault and output paths.
-
-## What Is Kept
-
-- Git history replay for the Obsidian vault
-- Markdown/CJK-aware word counting
-- Pure Python SVG rendering
-- A single shell entrypoint for daily use
-- JSON-based local incremental caching
-- Regression tests for counting, analysis, rendering, and script behavior
-
-## Notes
+## Requirements
 
 - The vault must be a Git repository.
-- Rename handling remains path-based; lineage is not merged across paths.
-- If the cache is missing, count settings change, or Git history is rewritten by rebase/reset, the tool automatically rebuilds the cache from scratch.
-- The tool uses Python standard library modules plus the local `git` executable.
-- The light workflow does not require a dashboard, Node, pnpm, or a vendored renderer.
+- Local `git` and `python3` are required.
+- Node, pnpm, dashboard, and vendored renderers are not required.

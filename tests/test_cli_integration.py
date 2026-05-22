@@ -283,12 +283,28 @@ class CliIntegrationTests(unittest.TestCase):
             self.assertIn("Word History", chart_svg)
             self.assertNotIn("stale chart", chart_svg)
             self.assertTrue(cache_path.exists())
-            self.assertEqual(str(target_chart), json.loads(completed.stdout)["chart_svg"])
+            self.assertEqual(completed.stdout.strip(), "新增字数: 3；当前总字数: 3")
             self.assertIn("==> Vault:", completed.stderr)
             self.assertIn("==> Target chart:", completed.stderr)
             self.assertIn("==> Cache:", completed.stderr)
             self.assertIn("[OK] Built chart artifacts", completed.stderr)
             self.assertIn("==> Done", completed.stderr)
+
+            repeated = subprocess.run(
+                [
+                    str(Path.cwd() / "scripts" / "generate_chart.sh"),
+                    str(repo),
+                    str(target_chart),
+                    str(cache_path),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHON_BIN": sys.executable},
+            )
+
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            self.assertEqual(repeated.stdout.strip(), "新增字数: 0；当前总字数: 3")
 
     def _commit(self, repo: Path, message: str, timestamp: str) -> None:
         env = os.environ.copy()

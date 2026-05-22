@@ -61,6 +61,21 @@ fi
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/obsidian-word-history-chart.XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+PREVIOUS_TOTAL="$("$PYTHON_CMD" - "$CACHE_PATH" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+cache_path = Path(sys.argv[1]).expanduser()
+try:
+    cache = json.loads(cache_path.read_text(encoding="utf-8"))
+    trend = cache.get("state", {}).get("commit_trend", [])
+    print(int(trend[-1]["total_words"]) if trend else 0)
+except (OSError, ValueError, KeyError, TypeError, IndexError, json.JSONDecodeError):
+    print(0)
+PY
+)"
+
 log "==> Vault: $VAULT_PATH"
 log "==> Target chart: $CHART_PATH"
 log "==> Cache: $CACHE_PATH"
@@ -88,9 +103,13 @@ mkdir -p "$(dirname "$CHART_PATH")"
 install -m 0644 "$TMP_DIR/chart.svg" "$CHART_PATH"
 log "==> Done"
 
-"$PYTHON_CMD" - "$CHART_PATH" <<'PY'
+"$PYTHON_CMD" - "$TMP_DIR/analysis.json" "$PREVIOUS_TOTAL" <<'PY'
 import json
 import sys
+from pathlib import Path
 
-print(json.dumps({"chart_svg": sys.argv[1]}, ensure_ascii=False))
+analysis = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+previous_total = int(sys.argv[2])
+current_total = int(analysis["summary"]["latest_total_words"])
+print(f"新增字数: {current_total - previous_total}；当前总字数: {current_total}")
 PY
