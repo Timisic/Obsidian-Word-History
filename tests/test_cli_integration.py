@@ -9,7 +9,7 @@ from pathlib import Path
 
 from obsidian_word_history.analysis import analyze_vault_history
 from obsidian_word_history.cli import build_report
-from obsidian_word_history.render import _build_time_mapper, _build_time_ticks
+from obsidian_word_history.render import _build_time_mapper, _build_time_ticks, render_chart_svg
 
 
 class CliIntegrationTests(unittest.TestCase):
@@ -44,6 +44,32 @@ class CliIntegrationTests(unittest.TestCase):
                 "2026-04-12",
             ],
         )
+
+    def test_rendered_x_axis_date_labels_do_not_overlap_or_clip(self) -> None:
+        svg = render_chart_svg(
+            {
+                "commit_trend": [
+                    {"timestamp": "2025-01-16T13:39:05+08:00", "total_words": 100},
+                    {"timestamp": "2025-04-01T00:00:00+08:00", "total_words": 200},
+                    {"timestamp": "2025-07-01T00:00:00+08:00", "total_words": 300},
+                    {"timestamp": "2025-10-01T00:00:00+08:00", "total_words": 400},
+                    {"timestamp": "2026-01-01T00:00:00+08:00", "total_words": 500},
+                    {"timestamp": "2026-04-01T00:00:00+08:00", "total_words": 600},
+                    {"timestamp": "2026-05-22T00:00:00+08:00", "total_words": 700},
+                ]
+            },
+            width=900,
+        )
+
+        chart_width = self._x_axis_width(svg)
+        labels = self._x_axis_date_label_extents(svg)
+
+        self.assertGreaterEqual(len(labels), 2)
+        for left, right, label in labels:
+            self.assertGreaterEqual(left, 0, label)
+            self.assertLessEqual(right, chart_width, label)
+        for previous, current in zip(labels, labels[1:]):
+            self.assertGreaterEqual(current[0], previous[1], (previous[2], current[2]))
 
     def test_analyzer_replays_git_history_and_preserves_path_based_rename_behavior(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -225,6 +251,35 @@ class CliIntegrationTests(unittest.TestCase):
             text=True,
         )
         return completed.stdout
+
+    def _x_axis_width(self, svg: str) -> float:
+        import re
+
+        match = re.search(r'<path class="domain" d="M0,0\.5H([-0-9.]+)"', svg)
+        self.assertIsNotNone(match)
+        return float(match.group(1))
+
+    def _x_axis_date_label_extents(self, svg: str) -> list[tuple[float, float, str]]:
+        import re
+
+        extents = []
+        pattern = re.compile(
+            r'<g class="tick" transform="translate\(([-0-9.]+),0\)">\s*'
+            r'<text y="24" text-anchor="(start|middle|end)" font-size="16" fill="[^"]+">'
+            r"([^<]+)</text>",
+            re.MULTILINE,
+        )
+        for x_text, anchor, label in pattern.findall(svg):
+            x = float(x_text)
+            label_width = len(label) * 8.0
+            if anchor == "start":
+                left, right = x, x + label_width
+            elif anchor == "end":
+                left, right = x - label_width, x
+            else:
+                left, right = x - label_width / 2, x + label_width / 2
+            extents.append((left, right, label))
+        return extents
 
 
 if __name__ == "__main__":

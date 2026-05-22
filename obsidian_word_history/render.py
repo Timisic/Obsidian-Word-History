@@ -20,6 +20,8 @@ Y_AXIS_LABEL = "Words"
 LEGEND_LABEL = "Total Words"
 
 MARGIN = {"top": 60, "right": 30, "bottom": 50, "left": 70}
+DATE_TICK_CHAR_WIDTH = 8.0
+DATE_TICK_GAP = 8.0
 
 
 def render_chart_svg(analysis: dict, *, width: int | None = None) -> str:
@@ -153,8 +155,8 @@ def _tick_anchor(index: int, total: int) -> str:
 
 
 def _tick_x_position(value: datetime, width: int, mapper) -> float:
-    raw = mapper(value, width) + MARGIN["left"]
-    return min(max(raw, MARGIN["left"] + 4), MARGIN["left"] + width - 4)
+    raw = mapper(value, width)
+    return min(max(raw, 0), width)
 
 
 def _recommended_chart_width(commit_trend: list[dict[str, object]]) -> int:
@@ -351,20 +353,37 @@ def _downsample_ticks(ticks: list[datetime], target: int) -> list[datetime]:
     return deduped
 
 
-def _prune_overlapping_ticks(ticks: list[datetime], chart_width: int, mapper, min_spacing_px: int = 120) -> list[datetime]:
+def _prune_overlapping_ticks(ticks: list[datetime], chart_width: int, mapper) -> list[datetime]:
     if len(ticks) <= 2:
         return ticks
 
     kept = [ticks[0]]
+    previous_extent = _date_tick_extent(ticks[0], chart_width, mapper, "start")
     for tick in ticks[1:-1]:
-        if mapper(tick, chart_width) - mapper(kept[-1], chart_width) >= min_spacing_px:
+        tick_extent = _date_tick_extent(tick, chart_width, mapper, "middle")
+        if tick_extent[0] >= previous_extent[1] + DATE_TICK_GAP:
             kept.append(tick)
+            previous_extent = tick_extent
 
     last_tick = ticks[-1]
-    if mapper(last_tick, chart_width) - mapper(kept[-1], chart_width) < min_spacing_px and len(kept) > 1:
+    last_extent = _date_tick_extent(last_tick, chart_width, mapper, "end")
+    while kept and previous_extent[1] + DATE_TICK_GAP > last_extent[0] and len(kept) > 1:
         kept.pop()
+        anchor = "start" if len(kept) == 1 else "middle"
+        previous_extent = _date_tick_extent(kept[-1], chart_width, mapper, anchor)
     kept.append(last_tick)
     return kept
+
+
+def _date_tick_extent(tick: datetime, chart_width: int, mapper, anchor: str) -> tuple[float, float]:
+    x = _tick_x_position(tick, chart_width, mapper)
+    label_width = len(_format_date_tick(tick)) * DATE_TICK_CHAR_WIDTH
+    if anchor == "start":
+        return (x, x + label_width)
+    if anchor == "end":
+        return (x - label_width, x)
+    half_width = label_width / 2
+    return (x - half_width, x + half_width)
 
 
 def _first_of_next_month(value: datetime) -> datetime:
