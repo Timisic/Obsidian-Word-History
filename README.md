@@ -61,5 +61,4 @@ npm run package  # 生成 dist/word-history 最小运行包
 - 首次运行没有 cache，会全量回放 Git 历史；之后会复用 cache，只分析新增 commit。
 - 插件是 desktop-only，因为它使用 Obsidian 桌面端可用的 Node API 和系统 `git`。
 - 插件设置由 Obsidian 写入插件目录的 `data.json`。
-- 分析 cache 默认在插件目录的 `.cache/word-history-cache.json`；它可能比设置大很多，所以不塞进 `data.json`。
 - 如果 cache 缺失、统计配置变化，或 Git history 被 rebase/reset 改写，工具会自动全量重建。
