@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "package": "npm run build && rm -rf dist/word-history && mkdir -p dist/word-history && cp main.js manifest.json versions.json dist/word-history/",
+    "package": "VERSION=$(node -p \"require('./manifest.json').version\") && npm run build && rm -rf dist/word-history && mkdir -p dist/word-history && cp main.js manifest.json versions.json dist/word-history/ && rm -f \"dist/word-history-v$VERSION.zip\" && cd dist && zip -qr \"word-history-v$VERSION.zip\" word-history",
     "install:plugin": "scripts/install_plugin.sh"
   },
   "keywords": [

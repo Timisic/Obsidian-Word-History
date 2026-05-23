@@ -1,48 +1,96 @@
-# Obsidian Word History Tool
+# Word History for Obsidian
 
 [中文 README](README.md)
 
-Turn a Git-backed Obsidian vault into a continuously updated word-history growth chart, in a Star History style. This branch is a minimal desktop Obsidian plugin: the source is TypeScript and the runtime artifact is the bundled `main.js`.
+Turn your Git-backed Obsidian vault into a local, auto-updating writing growth chart. Word History is designed for long-term writers, PKM users, and CJK/Chinese note collections that want one embeddable SVG to show writing accumulation over time.
 
-![Obsidian word history example](assets/example-chart.svg)
+![Example word history chart](assets/example-chart.svg)
 
-## Features
+## What you get
 
-- **One-command SVG generation**: embed the output directly in Obsidian notes, Canvas, websites, or READMEs.
-- **Incremental analysis**: replay full Git history once, then analyze only new commits.
-- **Chinese-note friendly**: word counting supports Markdown and CJK text.
-- **Lightweight local workflow**: at runtime the plugin only depends on system `git`; no Python, Node setup, dashboard, or external service.
-- **Minimal configuration**: set one SVG output path, then run manually, every N days, or after Git HEAD changes.
+- An SVG chart you can embed in Obsidian notes, Canvas, websites, or READMEs
+- One full Git-history replay on first run, then incremental updates for new commits
+- Markdown, Canvas text, and CJK-friendly counting
+- Local-only runtime: Obsidian desktop + system `git`
+- Manual, interval-based, or Git HEAD-change updates
+- Post-generation actions: Open SVG, Copy Obsidian embed, Reveal output file, and Reset cache
+
+## Who it is for
+
+Use this if your Obsidian vault is already backed by Git. The plugin reconstructs history from commits, so uncommitted writing sessions are not part of the chart.
+
+Version 0.1 intentionally stays focused on a single SVG chart. HTML reports, note tables, and dashboards are out of scope for this beta.
 
 ## Install
 
-One command for agents: replace `<vault_path>` with the user's Obsidian vault path. This installs only the files Obsidian needs at runtime; it does not copy source, tests, or Python tooling into the plugin folder.
+### Recommended: GitHub Release zip
+
+1. Download the latest `word-history.zip` / `word-history-v*.zip`
+2. Extract it to `<vault>/.obsidian/plugins/word-history/`
+3. Enable **Word History** in Obsidian settings
+
+### BRAT install
+
+1. Install and enable the Obsidian BRAT plugin
+2. Add `Timisic/Obsidian-Word-History` in BRAT
+3. Select the Release / beta version and enable **Word History**
+
+### Manual runtime install
+
+Copy these files into `<vault>/.obsidian/plugins/word-history/`:
+
+- `main.js`
+- `manifest.json`
+- `versions.json`
+
+Normal users do not need `npm install`, Python, Node, dashboards, or repository source files.
+
+### Advanced: command-line install
+
+For beta users who are comfortable with shell commands. Make sure you trust the target branch before running it.
 
 ```bash
 VAULT="<vault_path>"; PLUGIN_DIR="$VAULT/.obsidian/plugins/word-history"; BASE="https://raw.githubusercontent.com/Timisic/Obsidian-Word-History/obsidian-plugin-light"; mkdir -p "$PLUGIN_DIR" && curl -fsSL "$BASE/manifest.json" -o "$PLUGIN_DIR/manifest.json" && curl -fsSL "$BASE/main.js" -o "$PLUGIN_DIR/main.js" && curl -fsSL "$BASE/versions.json" -o "$PLUGIN_DIR/versions.json"
 ```
 
-From a local development checkout, install into a vault with:
+This repository also includes a local installer:
 
 ```bash
-./scripts/install_plugin.sh "<vault_path>"
+scripts/install_plugin.sh "<vault_path>"
 ```
 
-Then enable **Word History** in Obsidian settings and set the output SVG path, for example `Reference/chart.svg`.
+## First chart in 3 steps
 
-## Run
+1. Make sure your vault is a Git repository with at least one commit
+2. Set the output path, for example `Reference/chart.svg`
+3. Run `Word History: Generate word history chart`, or click **Generate** in plugin settings
 
-In Obsidian, open the command palette and run:
+Embed the chart in a note:
 
-```text
-Word History: Generate word history chart
+```md
+![[Reference/chart.svg]]
 ```
 
-You can also choose an update mode in the plugin settings:
+The settings tab shows git, vault, HEAD, output path, cache, and last-run status. Failed runs surface actionable preflight messages.
 
-- `Manual`: generate only when triggered manually.
-- `Every N days`: auto-generate while Obsidian is open.
-- `On Git changes`: auto-generate when the Git HEAD changes.
+## Requirements and limitations
+
+- Desktop-only Obsidian plugin
+- Requires system `git`
+- Uses committed Git history only
+- First run replays the full history; later runs reuse cache
+- Cache is stored in the plugin folder under `.cache/word-history-cache.json`
+- Rebase/reset or count-setting changes trigger a full rebuild
+- Rename history is path-based in the current version
+- Release zip and BRAT are the first supported distribution paths; Obsidian Community Plugin publishing is out of scope for now
+
+## Troubleshooting
+
+- **Not a Git repository**: run `git init` in the vault root, add files, and create at least one commit.
+- **No commit found**: commit your notes first; the chart is rebuilt from commit history.
+- **Git not found**: install Git and make sure Obsidian's launch environment can access `git`.
+- **Output path is not writable**: use a vault-relative path such as `Reference/chart.svg`, or fix folder permissions.
+- **The chart did not change**: make sure your edits are committed; if needed, Reset cache in settings and regenerate.
 
 ## Development
 
@@ -50,16 +98,9 @@ Normal users do not need this section; the repository already includes the built
 
 ```bash
 npm install
-npm run dev      # watch src/main.ts and rebuild main.js
+npm run dev      # watch src/*.ts and rebuild main.js
 npm run build    # type-check and generate production main.js
-npm run package  # create the dist/word-history minimal runtime package
+npm run package  # create dist/word-history and dist/word-history-v*.zip
 ```
 
-## Notes
-
-- The vault must be a Git repository.
-- The first run has no cache, so it replays the full Git history; later runs reuse the cache and analyze only new commits.
-- The plugin is desktop-only because it uses Obsidian desktop Node APIs and system `git`.
-- Plugin settings are stored by Obsidian in the plugin folder's `data.json`.
-- The analysis cache defaults to `.cache/word-history-cache.json` inside the plugin folder; it can be much larger than settings, so it is intentionally not stored in `data.json`.
-- If the cache is missing, count settings change, or Git history is rewritten by rebase/reset, the tool rebuilds from scratch.
+The Python CLI remains available as development/migration tooling. The Obsidian plugin runtime does not depend on Python.
