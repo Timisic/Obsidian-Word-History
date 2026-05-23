@@ -12,7 +12,7 @@ class ObsidianPluginMetadataTests(unittest.TestCase):
 
         self.assertEqual(manifest["id"], "word-history")
         self.assertEqual(manifest["name"], "Word History")
-        self.assertEqual(manifest["version"], "0.1.0")
+        self.assertEqual(manifest["version"], json.loads(Path("package.json").read_text(encoding="utf-8"))["version"])
         self.assertTrue(manifest["isDesktopOnly"])
         self.assertIn("SVG", manifest["description"])
 

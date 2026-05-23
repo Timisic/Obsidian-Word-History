@@ -1,6 +1,6 @@
 {
   "name": "obsidian-word-history",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate a Star History-style word-count SVG from a Git-backed Obsidian vault.",
   "main": "main.js",
   "scripts": {
