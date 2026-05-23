@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-word-history",
+  "version": "0.1.0",
+  "description": "Generate a Star History-style word-count SVG from a Git-backed Obsidian vault.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "word-count",
+    "svg"
+  ],
+  "author": "Timisic",
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "esbuild": "^0.25.5",
+    "obsidian": "latest",
+    "tslib": "^2.6.2",
+    "typescript": "^5.8.3"
+  },
+  "private": true
+}
