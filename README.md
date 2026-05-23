@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-把 Git 管理的 Obsidian vault 变成一张可长期更新的词数历史增长图，Star History 风格。当前分支是一个极简 Obsidian 桌面插件，源码使用 TypeScript，发布运行文件是已构建好的 `main.js`。
+把 Git 管理的 Obsidian vault 变成一张可长期更新的词数历史增长图，Star History 风格。
 
 ![Obsidian word history example](assets/example-chart.svg)
 
@@ -16,7 +16,10 @@
 
 ## 安装
 
-给 agent 的一条安装命令：把 `<vault_path>` 换成用户的 Obsidian vault 路径即可。这个命令只安装 Obsidian 运行必需文件，不会把源码、测试或 Python 工具复制进插件目录。
+给 agent 的一条安装命令：
+```bash
+把 `<vault_path>` 换成用户的 Obsidian vault 路径即可。这个命令只安装 Obsidian 运行必需文件，不会把源码、测试或 Python 工具复制进插件目录。
+```
 
 ```bash
 VAULT="<vault_path>"; PLUGIN_DIR="$VAULT/.obsidian/plugins/word-history"; BASE="https://raw.githubusercontent.com/Timisic/Obsidian-Word-History/obsidian-plugin-light"; mkdir -p "$PLUGIN_DIR" && curl -fsSL "$BASE/manifest.json" -o "$PLUGIN_DIR/manifest.json" && curl -fsSL "$BASE/main.js" -o "$PLUGIN_DIR/main.js" && curl -fsSL "$BASE/versions.json" -o "$PLUGIN_DIR/versions.json"
@@ -27,8 +30,6 @@ VAULT="<vault_path>"; PLUGIN_DIR="$VAULT/.obsidian/plugins/word-history"; BASE="
 ```bash
 ./scripts/install_plugin.sh "<vault_path>"
 ```
-
-然后在 Obsidian 设置里启用 **Word History** 插件，并设置输出 SVG 路径，例如 `Reference/chart.svg`。
 
 ## 运行
 
