@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { XKCD_FONT_DATA_URL } from "./fontData";
 import { gitBuffer, gitText } from "./git";
 import type { AnalysisState, BuildResult, CommitInfo, CountConfig, CountResult } from "./types";
 
@@ -515,7 +516,13 @@ ${renderLegend(COLORS.series, COLORS.stroke, COLORS.background)}
 function svgDefs() {
   return `<defs>
     <style type="text/css"><![CDATA[
-      text { font-family: "xkcd", "Comic Sans MS", cursive; }
+      @font-face {
+        font-family: "xkcd";
+        src: url(${XKCD_FONT_DATA_URL}) format("woff");
+      }
+      text {
+        font-family: "xkcd", "Comic Sans MS", cursive;
+      }
     ]]></style>
     <filter id="xkcdify" filterUnits="userSpaceOnUse" x="-5" y="-5" width="100%" height="100%">
       <feTurbulence type="fractalNoise" baseFrequency="0.05" result="noise" />

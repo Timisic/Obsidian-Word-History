@@ -135,6 +135,8 @@ class ObsidianPluginMetadataTests(unittest.TestCase):
             self.assertEqual(first["wordsAddedSinceLastRun"], 3)
             svg = output_svg.read_text(encoding="utf-8")
             self.assertIn("Word History", svg)
+            self.assertIn("@font-face", svg)
+            self.assertIn("data:application/font-woff", svg)
             self.assertIn('class="xaxis"', svg)
             self.assertIn('class="yaxis"', svg)
             self.assertIn('class="chart-line"', svg)
