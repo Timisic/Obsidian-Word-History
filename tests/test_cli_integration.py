@@ -89,7 +89,10 @@ class CliIntegrationTests(unittest.TestCase):
                 [2, 3, 5, 5],
             )
             self.assertEqual(
-                analysis["recent_active_notes_30d"],
+                [
+                    {**note, "latest_touch_at": datetime.fromisoformat(note["latest_touch_at"].replace("Z", "+00:00")).isoformat()}
+                    for note in analysis["recent_active_notes_30d"]
+                ],
                 [
                     {
                         "path": "note-a.md",
