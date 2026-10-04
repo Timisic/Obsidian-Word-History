@@ -7,7 +7,9 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "package": "VERSION=$(node -p \"require('./manifest.json').version\") && npm run build && rm -rf dist/word-history && mkdir -p dist/word-history && cp main.js manifest.json versions.json dist/word-history/ && rm -f \"dist/word-history-v$VERSION.zip\" && cd dist && zip -qr \"word-history-v$VERSION.zip\" word-history",
-    "install:plugin": "scripts/install_plugin.sh"
+    "install:plugin": "scripts/install_plugin.sh",
+    "render:png": "node scripts/render_png.mjs",
+    "test:publish": "node --test tests/publishing.test.mjs"
   },
   "keywords": [
     "obsidian",
@@ -20,6 +22,7 @@
     "@types/node": "^20.12.7",
     "esbuild": "^0.25.5",
     "obsidian": "latest",
+    "playwright": "1.63.0",
     "tslib": "^2.6.2",
     "typescript": "^5.8.3"
   },

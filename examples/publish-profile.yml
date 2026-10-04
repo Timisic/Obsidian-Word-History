@@ -1,0 +1,56 @@
+# Install this workflow in the PRIVATE vault repository.
+# Replace PLUGIN_COMMIT_SHA with the reviewed public plugin commit SHA.
+name: Publish word history PNG
+on:
+  push:
+    branches: [main]
+    paths:
+      - Reference/chart.svg
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-word-history
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: source
+          ref: main
+          sparse-checkout: Reference/chart.svg
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Timisic/Obsidian-Word-History
+          ref: PLUGIN_COMMIT_SHA
+          path: renderer
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: renderer/package-lock.json
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: renderer
+      - run: node renderer/scripts/render_png.mjs source/Reference/chart.svg "$RUNNER_TEMP/chart.png"
+      - name: Publish PNG using a profile-only deploy key
+        env:
+          PROFILE_DEPLOY_KEY: ${{ secrets.PROFILE_DEPLOY_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/profile-key"
+          hosts="$RUNNER_TEMP/github-known-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          umask 077
+          printf '%s\n' "$PROFILE_DEPLOY_KEY" > "$key"
+          curl --fail --silent --show-error https://api.github.com/meta | python3 -c 'import json,sys; print("\n".join("github.com " + key for key in json.load(sys.stdin)["ssh_keys"]))' > "$hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$hosts"
+          git clone --depth 1 git@github.com:Timisic/Timisic.git "$RUNNER_TEMP/profile"
+          git -C "$RUNNER_TEMP/profile" config user.name 'word-history-bot'
+          git -C "$RUNNER_TEMP/profile" config user.email 'word-history-bot@users.noreply.github.com'
+          renderer/scripts/publish_profile.sh "$RUNNER_TEMP/chart.png" "$RUNNER_TEMP/profile"
