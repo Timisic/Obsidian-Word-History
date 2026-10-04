@@ -43,7 +43,7 @@ class ObsidianPluginMetadataTests(unittest.TestCase):
         self.assertIn("check-word-history-git-changes", main_js)
         self.assertIn("buildWordHistory", main_js)
         self.assertIn("runPreflight", main_js)
-        self.assertIn("Copy Obsidian embed", main_js)
+        self.assertIn("Copy embed", main_js)
         self.assertIn("Reset cache", main_js)
         self.assertIn("noImplicitAny", Path("tsconfig.json").read_text(encoding="utf-8"))
         self.assertTrue(Path("src/generator.ts").exists())

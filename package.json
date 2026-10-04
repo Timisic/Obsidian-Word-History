@@ -9,7 +9,7 @@
     "package": "VERSION=$(node -p \"require('./manifest.json').version\") && npm run build && rm -rf dist/word-history && mkdir -p dist/word-history && cp main.js manifest.json versions.json dist/word-history/ && rm -f \"dist/word-history-v$VERSION.zip\" && cd dist && zip -qr \"word-history-v$VERSION.zip\" word-history",
     "install:plugin": "scripts/install_plugin.sh",
     "render:png": "node scripts/render_png.mjs",
-    "test:publish": "node --test tests/publishing.test.mjs"
+    "test:publish": "node --test tests/*.test.mjs"
   },
   "keywords": [
     "obsidian",

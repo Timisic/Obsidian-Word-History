@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, getLanguage } from "obsidian";
 import * as fs from "fs";
 import * as path from "path";
 import { buildWordHistory, countCountableText, countMarkdown, isCountablePath, renderChartSvg } from "./generator";
@@ -23,6 +23,10 @@ export const DEFAULT_SETTINGS: WordHistorySettings = {
 
 export default class WordHistoryPlugin extends Plugin {
   settings: WordHistorySettings;
+  private inFlight: Promise<void> | null = null;
+  private settingTab: WordHistorySettingTab | null = null;
+
+  get isGenerating(): boolean { return this.inFlight !== null; }
 
   async onload() {
     await this.loadSettings();
@@ -39,7 +43,8 @@ export default class WordHistoryPlugin extends Plugin {
       callback: () => this.maybeRunGitChangeUpdate({ silent: false }),
     });
 
-    this.addSettingTab(new WordHistorySettingTab(this.app, this));
+    this.settingTab = new WordHistorySettingTab(this.app, this);
+    this.addSettingTab(this.settingTab);
 
     this.registerInterval(window.setInterval(() => {
       this.maybeRunScheduledUpdate();
@@ -76,9 +81,10 @@ export default class WordHistoryPlugin extends Plugin {
     return path.isAbsolute(configuredPath) ? configuredPath : path.join(this.getVaultPath(), configuredPath);
   }
 
-  getOutputEmbedPath(): string {
-    const configuredPath = this.settings.outputPath || DEFAULT_SETTINGS.outputPath;
-    return path.isAbsolute(configuredPath) ? path.relative(this.getVaultPath(), configuredPath).replace(/\\/gu, "/") : configuredPath.replace(/\\/gu, "/");
+  getOutputEmbedPath(): string | null {
+    const relative = path.relative(this.getVaultPath(), this.getOutputPath());
+    if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
+    return relative.replace(/\\/gu, "/");
   }
 
   getCachePath(): string {
@@ -89,10 +95,12 @@ export default class WordHistoryPlugin extends Plugin {
     const cachePath = this.getCachePath();
     if (!fs.existsSync(cachePath)) return "No cache yet.";
     const stats = fs.statSync(cachePath);
-    return `Cache exists (${Math.max(stats.size, 0)} bytes, updated ${new Date(stats.mtimeMs).toLocaleString()}).`;
+    const size = stats.size < 1024 ? `${stats.size} B` : stats.size < 1024 * 1024 ? `${(stats.size / 1024).toFixed(1)} KB` : `${(stats.size / (1024 * 1024)).toFixed(1)} MB`;
+    return `${size} · ${new Date(stats.mtimeMs).toLocaleString()}`;
   }
 
   resetCache(): void {
+    if (this.isGenerating) throw new Error("Wait for generation to finish before resetting the cache.");
     const cachePath = this.getCachePath();
     if (fs.existsSync(cachePath)) fs.rmSync(cachePath, { force: true });
     this.settings.lastRunStatus = "Cache reset. Generate again to rebuild from Git history.";
@@ -123,11 +131,25 @@ export default class WordHistoryPlugin extends Plugin {
     }
   }
 
-  async runGenerator({ silent }: { silent: boolean }) {
+  runGenerator(options: { silent: boolean }): Promise<void> {
+    if (this.inFlight) return this.inFlight;
+    this.inFlight = Promise.resolve().then(() => this.generate(options)).finally(() => {
+      this.inFlight = null;
+      this.settingTab?.refreshRunState();
+    });
+    this.settingTab?.refreshRunState();
+    return this.inFlight;
+  }
+
+  private async generate({ silent }: { silent: boolean }) {
     try {
-      const readiness = await this.getReadiness();
+      const vaultPath = this.getVaultPath();
+      const outputPath = this.getOutputPath();
+      const cachePath = this.getCachePath();
+      const chartOptions = { ...this.settings };
+      const readiness = await runPreflight(vaultPath, outputPath);
       if (!readiness.ok) throw new Error(summarizePreflightFailure(readiness));
-      const result = await buildWordHistory(this.getVaultPath(), this.getOutputPath(), this.getCachePath(), this.settings);
+      const result = await buildWordHistory(vaultPath, outputPath, cachePath, chartOptions);
       this.settings.lastRunAt = Date.now();
       this.settings.lastSeenHead = result.headCommit;
       this.settings.lastGeneratedPath = result.chartSvgPath;
@@ -137,14 +159,14 @@ export default class WordHistoryPlugin extends Plugin {
       this.settings.lastRunStatus = `Updated ${new Date(this.settings.lastRunAt).toLocaleString()}: +${result.wordsAddedSinceLastRun} words, ${result.currentTotalWords} total.`;
       await this.saveSettings();
       if (!silent) {
-        new Notice(`Word History chart updated. +${result.wordsAddedSinceLastRun} words, ${result.currentTotalWords} total.`);
+        new Notice(typeof getLanguage === "function" && getLanguage().startsWith("zh") ? `图表已更新，总字数 ${result.currentTotalWords.toLocaleString()}。` : `Chart updated. ${result.currentTotalWords.toLocaleString()} total words.`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.settings.lastRunError = message;
       this.settings.lastRunStatus = `Failed ${new Date().toLocaleString()}: ${message}`;
       await this.saveSettings();
-      if (!silent) new Notice(`Word History failed: ${message}`);
+      if (!silent) new Notice(`${typeof getLanguage === "function" && getLanguage().startsWith("zh") ? "生成失败" : "Generation failed"}: ${message}`);
       console.error("Word History failed", error);
     }
   }

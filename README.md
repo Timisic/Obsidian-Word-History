@@ -13,7 +13,7 @@
 - 支持 Markdown、Canvas 文本和 CJK/中文内容统计；中文用户可以把它理解为字数趋势 / 写作量
 - 本地运行；插件运行时只需要 Obsidian 桌面端和系统 `git`
 - 可手动生成，也可按间隔或 Git HEAD 变化自动更新
-- 生成后可直接 Open SVG、Copy Obsidian embed、Reveal output file，或 Reset cache 重建历史
+- 生成后可查看图表、复制嵌入；诊断与维护中可显示文件或重置缓存
 
 ## 适合谁
 
@@ -63,7 +63,7 @@ scripts/install_plugin.sh "<vault_path>"
 
 1. 确认你的 vault 是 Git 仓库，并且至少有一个 commit
 2. 在插件设置里设置输出路径，例如 `Reference/chart.svg`
-3. 命令面板运行 `Word History: Generate word history chart`，或在设置页点击 **Generate**
+3. 命令面板运行 `Word History: Generate word history chart`，或在设置页点击 **立即生成 / Generate**
 
 生成后，在任意 note 中插入：
 
@@ -71,7 +71,9 @@ scripts/install_plugin.sh "<vault_path>"
 ![[Reference/chart.svg]]
 ```
 
-设置页会显示 Git、vault、HEAD、输出路径、cache 和上次运行状态；生成失败时会给出可操作原因。
+设置页显示最近本地结果。自动更新可选手动、按天数或 Git 更新时；选择按天数后才显示间隔。图表选项中设置月份和时区，诊断与维护中刷新 Git 检查、查看缓存或重置缓存。保存到库外时无法复制 Obsidian 嵌入。
+
+The settings page shows the latest local result. Choose an auto-update mode and save location, then use Generate, View chart, or Copy embed. Interval days appear only for scheduled updates. Expand Chart options for the milestone and time zone, or Diagnostics for checks, cache maintenance, and Reveal file. Embedding requires a path inside the vault.
 
 ## 要求与限制
 
