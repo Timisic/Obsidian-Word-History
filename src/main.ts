@@ -8,6 +8,8 @@ import type { WordHistorySettings } from "./types";
 
 export const DEFAULT_SETTINGS: WordHistorySettings = {
   outputPath: "Reference/chart.svg",
+  milestoneMonth: "",
+  timeZone: "UTC",
   updateMode: "manual",
   intervalDays: 3,
   lastRunAt: 0,
@@ -125,7 +127,7 @@ export default class WordHistoryPlugin extends Plugin {
     try {
       const readiness = await this.getReadiness();
       if (!readiness.ok) throw new Error(summarizePreflightFailure(readiness));
-      const result = await buildWordHistory(this.getVaultPath(), this.getOutputPath(), this.getCachePath());
+      const result = await buildWordHistory(this.getVaultPath(), this.getOutputPath(), this.getCachePath(), this.settings);
       this.settings.lastRunAt = Date.now();
       this.settings.lastSeenHead = result.headCommit;
       this.settings.lastGeneratedPath = result.chartSvgPath;

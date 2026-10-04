@@ -9,7 +9,7 @@ from pathlib import Path
 
 from obsidian_word_history.analysis import analyze_vault_history
 from obsidian_word_history.cli import build_report
-from obsidian_word_history.render import _build_time_mapper, _build_time_ticks, render_chart_svg
+from obsidian_word_history.render import _build_time_mapper, build_axis_layout, render_chart_svg
 
 
 class CliIntegrationTests(unittest.TestCase):
@@ -26,24 +26,16 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertGreater(april_first_x, 850.0)
         self.assertLess(april_first_x, 880.0)
 
-    def test_build_time_ticks_prefers_calendar_boundaries_for_long_ranges(self) -> None:
-        ticks = _build_time_ticks(
-            datetime.fromisoformat("2025-01-16T13:39:05+08:00"),
-            datetime.fromisoformat("2026-04-12T18:02:02+08:00"),
-            5,
+    def test_calendar_ticks_are_regular_and_separate_from_exact_range(self) -> None:
+        layout = build_axis_layout(
+            datetime.fromisoformat("2025-01-16T13:39:05+08:00").timestamp(),
+            datetime.fromisoformat("2026-04-12T18:02:02+08:00").timestamp(),
+            680,
+            time_zone="Asia/Shanghai",
         )
-        self.assertEqual(
-            [tick.strftime("%Y-%m-%d") for tick in ticks],
-            [
-                "2025-01-16",
-                "2025-04-01",
-                "2025-07-01",
-                "2025-10-01",
-                "2026-01-01",
-                "2026-04-01",
-                "2026-04-12",
-            ],
-        )
+        self.assertEqual([tick.label for tick in layout.ticks], ["2025-04", "2025-07", "2025-10", "2026-01", "2026-04"])
+        self.assertEqual(layout.start_label, "Start 2025-01-16")
+        self.assertEqual(layout.end_label, "End 2026-04-12")
 
     def test_rendered_x_axis_date_labels_do_not_overlap_or_clip(self) -> None:
         svg = render_chart_svg(

@@ -2,6 +2,8 @@ export type UpdateMode = "manual" | "interval" | "git-changes";
 
 export interface WordHistorySettings {
   outputPath: string;
+  milestoneMonth: string;
+  timeZone: string;
   updateMode: UpdateMode;
   intervalDays: number;
   lastRunAt: number;

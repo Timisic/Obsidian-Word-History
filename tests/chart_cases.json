@@ -1,0 +1,13 @@
+[
+  {"name":"quarterly", "start":"2025-01-16T13:39:05+08:00", "end":"2026-04-12T18:02:02+08:00", "milestoneMonth":"2025-07", "timeZone":"Asia/Shanghai"},
+  {"name":"centered-marker", "start":"2025-01-01T00:00:00Z", "end":"2025-12-31T00:00:00Z", "milestoneMonth":"2025-07", "timeZone":"UTC"},
+  {"name":"near-start", "start":"2025-06-30T23:59:59+08:00", "end":"2026-01-01T00:00:00+08:00", "milestoneMonth":"2025-07", "timeZone":"Asia/Shanghai"},
+  {"name":"near-end", "start":"2025-01-01T00:00:00+08:00", "end":"2025-07-01T00:00:01+08:00", "milestoneMonth":"2025-07", "timeZone":"Asia/Shanghai"},
+  {"name":"outside", "start":"2026-01-01T00:00:00Z", "end":"2026-09-01T00:00:00Z", "milestoneMonth":"2025-07", "timeZone":"UTC"},
+  {"name":"multiyear", "start":"2018-02-12T00:00:00Z", "end":"2037-11-30T00:00:00Z", "milestoneMonth":"2025-07", "timeZone":"UTC"},
+  {"name":"same-day", "start":"2025-07-01T01:00:00+08:00", "end":"2025-07-01T23:00:00+08:00", "milestoneMonth":"2025-07", "timeZone":"Asia/Shanghai"},
+  {"name":"same-instant", "start":"2025-07-01T00:00:00+08:00", "end":"2025-07-01T00:00:00+08:00", "milestoneMonth":"2025-07", "timeZone":"Asia/Shanghai"},
+  {"name":"utc-midnight", "start":"2025-06-30T20:00:00Z", "end":"2025-07-01T01:00:00Z", "milestoneMonth":"2025-07", "timeZone":"Asia/Shanghai"},
+  {"name":"dst", "start":"2025-01-01T00:00:00-05:00", "end":"2026-01-01T00:00:00-05:00", "milestoneMonth":"2025-07", "timeZone":"America/New_York"},
+  {"name":"future", "start":"2028-01-01T00:00:00Z", "end":"2030-10-01T00:00:00Z", "timeZone":"UTC"}
+]

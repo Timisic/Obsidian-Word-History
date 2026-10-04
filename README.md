@@ -104,3 +104,11 @@ npm run package  # 生成 dist/word-history 和 dist/word-history-v*.zip
 ```
 
 Python CLI 仍作为开发/迁移工具保留；Obsidian 插件运行时不依赖 Python。
+
+### 日期与图表规则
+
+图表默认宽度 780px，最小 360px。横轴按真实时间线性定位，按可用宽度选择完整的月、季度、半年、年及多年日历间隔，不抽取不规则日期。起止日期始终以 `Start YYYY-MM-DD`、`End YYYY-MM-DD` 保留，窄图上下排列。同一时刻的数据居中，时间轴不重复制造刻度。
+
+设置中的 `Milestone month` 可填 `2025-07`，在所选时区的 7 月 1 日画虚线，文字在边缘让位但虚线位置不变。超出范围时只在页脚注明。默认不设置里程碑。`Chart time zone` 默认 `UTC`，可改为 `Asia/Shanghai`。CLI 同样支持 `--milestone-month 2025-07 --time-zone Asia/Shanghai`。
+
+插件 CI 检查构建、Python 测试与 Chromium 发布测试。`npm run render:png -- input.svg output.png` 将 SVG 转为 PNG。私有 vault 仓库可使用 `examples/publish-profile.yml`，固定公开插件的 commit；`PROFILE_DEPLOY_KEY` 只写主页仓库，发布内容仅为 PNG。

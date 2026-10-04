@@ -104,3 +104,11 @@ npm run package  # create dist/word-history and dist/word-history-v*.zip
 ```
 
 The Python CLI remains available as development/migration tooling. The Obsidian plugin runtime does not depend on Python.
+
+### Chart dates
+
+The default width is 780px; the minimum is 360px. Positions follow elapsed time. The axis selects complete calendar intervals from months, quarters, half-years, years and multiple years according to available width. It never samples irregular dates. Exact `Start YYYY-MM-DD` and `End YYYY-MM-DD` remain in the footer, stacked on narrow charts. Points at the same instant sit in the center without duplicate axis ticks.
+
+Set `Milestone month` to an optional `YYYY-MM`, such as `2025-07`. Its dashed line marks the first day of that month in the selected time zone. Edge labels move with a leader while the line stays at its true position. A month outside the range appears only as a footer note. The default milestone is empty. `Chart time zone` defaults to `UTC`; `Asia/Shanghai` is supported. The CLI accepts the same options through `--milestone-month 2025-07 --time-zone Asia/Shanghai`.
+
+Plugin CI checks the build, Python tests and Chromium publishing tests. `npm run render:png -- input.svg output.png` converts an SVG to PNG. Use `examples/publish-profile.yml` in the private vault repository and pin the public plugin commit. `PROFILE_DEPLOY_KEY` writes only to the profile repository. Only the PNG is published.

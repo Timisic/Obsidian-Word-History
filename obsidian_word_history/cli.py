@@ -27,6 +27,8 @@ def build_report(
     config: CountConfig | None = None,
     top_n: int = 10,
     cache_path: Path | str | None = None,
+    milestone_month: str | None = None,
+    time_zone: str = "UTC",
 ) -> ReportPaths:
     vault = Path(vault_path).expanduser()
     output_dir = Path(out_dir).expanduser() if out_dir is not None else Path.cwd() / "out"
@@ -40,7 +42,7 @@ def build_report(
     chart_svg_path = output_dir / "chart.svg"
 
     analysis_path.write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
-    chart_svg_path.write_text(render_chart_svg(analysis), encoding="utf-8")
+    chart_svg_path.write_text(render_chart_svg(analysis, milestone_month=milestone_month, time_zone=time_zone), encoding="utf-8")
 
     return ReportPaths(
         analysis_json=analysis_path,
@@ -55,6 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
     build = subparsers.add_parser("build", help="Replay Git history and generate analysis.json + chart.svg")
     build.add_argument("--vault", required=True, help="Path to the Git-backed Obsidian vault")
     build.add_argument("--out", default="out", help="Directory to write report output (default: ./out)")
+    build.add_argument("--milestone-month", help="Optional YYYY-MM chart marker")
+    build.add_argument("--time-zone", default="UTC", help="IANA chart time zone (default: UTC)")
     build.add_argument("--cache", help="Path to an incremental history cache JSON file")
     build.add_argument("--generated-at", help="Override generated_at timestamp in ISO-8601 format")
     build.add_argument("--top-n", type=int, default=10, help="How many recent active notes to include")
@@ -81,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
             config=_count_config_from_args(args),
             top_n=args.top_n,
             cache_path=args.cache,
+            milestone_month=args.milestone_month,
+            time_zone=args.time_zone,
         )
         print(
             json.dumps(

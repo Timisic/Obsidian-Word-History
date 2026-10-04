@@ -1,30 +1,24 @@
 import * as fs from "fs";
 import * as path from "path";
-import { XKCD_FONT_DATA_URL } from "./fontData";
+import { renderChartSvg, type ChartOptions } from "./chart";
+export { renderChartSvg } from "./chart";
 import { gitBuffer, gitText } from "./git";
 import type { AnalysisState, BuildResult, CommitInfo, CountConfig, CountResult } from "./types";
 
 const CACHE_SCHEMA_VERSION = "js-1";
-const CHART_TITLE = "Word History";
-const Y_AXIS_LABEL = "Words";
-const LEGEND_LABEL = "Total Words";
-const MARGIN = { top: 60, right: 30, bottom: 50, left: 70 };
-const DATE_TICK_CHAR_WIDTH = 8;
-const DATE_TICK_GAP = 8;
-const COLORS = { background: "white", stroke: "black", series: "#dd4528" };
 const COUNTABLE_EXTENSIONS = new Set([
   "", "markdown", "md", "mdml", "mdown", "mdtext", "mdtxt", "mdwn", "mkd", "mkdn",
   "canvas", "txt", "text", "rtf", "qmd", "rmd", "fountain", "tex",
 ]);
 
-export async function buildWordHistory(vaultPath: string, outputPath: string, cachePath: string): Promise<BuildResult> {
+export async function buildWordHistory(vaultPath: string, outputPath: string, cachePath: string, chartOptions: ChartOptions = {}): Promise<BuildResult> {
   const repoPath = path.resolve(vaultPath);
   const countConfig = loadCountConfig(repoPath);
   const headCommit = (await gitText(repoPath, ["rev-parse", "HEAD"])).trim();
   const previousTotal = readCachedTotal(cachePath);
   const state = await loadAnalysisState(repoPath, countConfig, headCommit, cachePath);
   const analysis = finalizeAnalysis(repoPath, headCommit, countConfig, state);
-  const svg = renderChartSvg(analysis);
+  const svg = renderChartSvg(analysis, undefined, chartOptions);
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, svg, "utf8");
@@ -471,273 +465,6 @@ function buildFolderMetrics(noteMetrics: any) {
   return [...grouped.values()].sort((a, b) => b.current_words - a.current_words || a.path.localeCompare(b.path));
 }
 
-export function renderChartSvg(analysis: any, width?: number) {
-  const commitTrend = analysis.commit_trend || [];
-  const chartWidthValue = width || recommendedChartWidth(commitTrend);
-  const height = Math.floor((chartWidthValue * 2) / 3);
-  const innerWidth = chartWidthValue - MARGIN.left - MARGIN.right;
-  const innerHeight = height - MARGIN.top - MARGIN.bottom;
-  if (!commitTrend.length) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${chartWidthValue}" height="${height}" viewBox="0 0 ${chartWidthValue} ${height}">
-  ${svgDefs()}
-  <rect width="100%" height="100%" fill="white" />
-  ${renderTitle(COLORS.stroke)}
-  ${renderYLabel(height, 0, COLORS.stroke)}
-  <text x="50%" y="${height / 2}" text-anchor="middle" font-family="xkcd, Comic Sans MS, cursive" font-size="16">No data</text>
-</svg>`;
-  }
-  const xValues = commitTrend.map((entry: any) => parseIsoDate(String(entry.timestamp)));
-  const yValues = commitTrend.map((entry: any) => Number(entry.total_words));
-  const minX = new Date(Math.min(...xValues.map((value: Date) => value.getTime())));
-  const maxX = new Date(Math.max(...xValues.map((value: Date) => value.getTime())));
-  const maxY = Math.max(...yValues, 1);
-  const mapper = (value: Date, w: number) => scaleTime(value, minX, maxX, w);
-  const xTicks = pruneOverlappingTicks(xValues.length === 1 ? [xValues[0]] : buildTimeTicks(minX, maxX, 5), innerWidth, mapper);
-  const yTicks = buildLinearTicks(maxY, 5);
-  const yDomainMax = yTicks.length ? yTicks[yTicks.length - 1] : maxY;
-  const points = xValues.map((value: Date, index: number) => [mapper(value, innerWidth), scaleLinear(yValues[index], yDomainMax, innerHeight)]);
-  const linePath = buildLinePath(points);
-  const [endX, endY] = points[points.length - 1];
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${chartWidthValue}" height="${height}" viewBox="0 0 ${chartWidthValue} ${height}">
-  ${svgDefs()}
-  <rect width="100%" height="100%" fill="${COLORS.background}" />
-  ${renderTitle(COLORS.stroke)}
-  ${renderYLabel(height, maxY, COLORS.stroke)}
-  <g class="chart" transform="translate(${MARGIN.left},${MARGIN.top})">
-${renderXAxis(xTicks, innerWidth, innerHeight, mapper, COLORS.stroke)}
-${renderYAxis(yTicks, yDomainMax, innerHeight, COLORS.stroke)}
-    <path class="chart-line" d="${linePath}" fill="none" stroke="${COLORS.series}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
-    <circle class="chart-dot endpoint-dot" cx="${formatNumber(endX)}" cy="${formatNumber(endY)}" r="4" fill="${COLORS.series}" stroke="${COLORS.series}" />
-${renderLegend(COLORS.series, COLORS.stroke, COLORS.background)}
-  </g>
-</svg>`;
-}
-
-function svgDefs() {
-  return `<defs>
-    <style type="text/css"><![CDATA[
-      @font-face {
-        font-family: "xkcd";
-        src: url(${XKCD_FONT_DATA_URL}) format("woff");
-      }
-      text {
-        font-family: "xkcd", "Comic Sans MS", cursive;
-      }
-    ]]></style>
-    <filter id="xkcdify" filterUnits="userSpaceOnUse" x="-5" y="-5" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.05" result="noise" />
-      <feDisplacementMap scale="5" xChannelSelector="R" yChannelSelector="G" in="SourceGraphic" in2="noise" />
-    </filter>
-  </defs>`;
-}
-
-function renderTitle(strokeColor: any) {
-  return `<text x="50%" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="${strokeColor}">${CHART_TITLE}</text>`;
-}
-
-function renderYLabel(height: any, maxValue: any, strokeColor: any) {
-  let offsetY = 24;
-  if (maxValue > 100000) offsetY = 2;
-  else if (maxValue > 10000) offsetY = 8;
-  else if (maxValue > 1000) offsetY = 12;
-  else if (maxValue > 100) offsetY = 20;
-  return `<text text-anchor="end" dy=".75em" transform="rotate(-90)" x="-${formatNumber(height / 2)}" y="${offsetY}" font-size="17" fill="${strokeColor}">${Y_AXIS_LABEL}</text>`;
-}
-
-function renderXAxis(ticks: any, chartWidth: any, chartHeight: any, mapper: any, strokeColor: any) {
-  const tickSvg = ticks.map((tick: any, index: number) => `      <g class="tick" transform="translate(${formatNumber(tickXPosition(tick, chartWidth, mapper))},0)">
-        <text y="24" text-anchor="${tickAnchor(index, ticks.length)}" font-size="16" fill="${strokeColor}">${escapeXml(formatDateTick(tick))}</text>
-      </g>`).join("\n");
-  return `    <g class="xaxis" transform="translate(0,${chartHeight})">
-      <path class="domain" d="M0,0.5H${chartWidth}" fill="none" stroke="${strokeColor}" stroke-width="2.5" filter="url(#xkcdify)" />
-${tickSvg}
-    </g>`;
-}
-
-function renderYAxis(ticks: any, domainMax: any, chartHeight: any, strokeColor: any) {
-  const tickSvg = ticks.filter((tick: any) => tick !== 0).map((tick: any) => `      <g class="tick" transform="translate(0,${formatNumber(scaleLinear(tick, domainMax, chartHeight))})">
-        <line x2="-3" stroke="${strokeColor}" />
-        <text x="-8" y="5" text-anchor="end" font-size="16" fill="${strokeColor}">${escapeXml(formatNumberTick(tick))}</text>
-      </g>`).join("\n");
-  return `    <g class="yaxis">
-      <path class="domain" d="M0.5,0V${chartHeight}" fill="none" stroke="${strokeColor}" stroke-width="2.5" filter="url(#xkcdify)" />
-${tickSvg}
-    </g>`;
-}
-
-function renderLegend(seriesColor: any, strokeColor: any, backgroundColor: any) {
-  const legendX = 8;
-  const legendY = 5;
-  const legendXPadding = 7;
-  const colorBlockWidth = 8;
-  const backgroundWidth = Math.max(120, Math.trunc(LEGEND_LABEL.length * 7.5 + colorBlockWidth + legendXPadding * 3 + 6));
-  const textX = legendX + legendXPadding + colorBlockWidth + 6;
-  const colorX = legendX + legendXPadding;
-  return `    <g class="legend">
-      <rect x="${legendX}" y="${legendY}" width="${backgroundWidth}" height="32" rx="5" ry="5" fill="${backgroundColor}" fill-opacity="0.85" stroke="${strokeColor}" stroke-width="2" filter="url(#xkcdify)" />
-      <rect x="${colorX}" y="${legendY + 12}" width="${colorBlockWidth}" height="${colorBlockWidth}" rx="2" ry="2" fill="${seriesColor}" filter="url(#xkcdify)" />
-      <text x="${textX}" y="${legendY + 21}" font-size="15" fill="${strokeColor}">${LEGEND_LABEL}</text>
-    </g>`;
-}
-
-function buildTimeTicks(start: any, end: any, count: any) {
-  if (end <= start) return [start];
-  const spanDays = Math.max(Math.floor((end - start) / (24 * 60 * 60 * 1000)), 1);
-  let ticks;
-  if (spanDays > 730) ticks = buildMonthBoundaryTicks(start, end, 6);
-  else if (spanDays > 365) ticks = buildMonthBoundaryTicks(start, end, 3);
-  else if (spanDays > 180) ticks = buildMonthBoundaryTicks(start, end, 2);
-  else if (spanDays > 60) ticks = buildMonthBoundaryTicks(start, end, 1);
-  else if (spanDays > 21) ticks = buildDayBoundaryTicks(start, end, 14);
-  else ticks = buildDayBoundaryTicks(start, end, 7);
-  return ticks.length > Math.max(count + 2, 7) ? downsampleTicks(ticks, count + 2) : ticks;
-}
-
-function buildLinearTicks(maxValue: any, count: any) {
-  if (maxValue <= 0) return [0];
-  const step = niceNumber(maxValue / Math.max(count - 1, 1));
-  const niceMax = Math.ceil(maxValue / step) * step;
-  const tickCount = Math.max(Math.round(niceMax / step), 1);
-  return Array.from({ length: tickCount + 1 }, (_value, index) => round10(step * index));
-}
-
-function buildMonthBoundaryTicks(start: any, end: any, monthStep: any) {
-  const ticks = [start];
-  let candidate = firstOfNextMonth(start);
-  while (candidate < end) {
-    if ((candidate.getUTCMonth() % monthStep) === 0) ticks.push(candidate);
-    candidate = addMonths(candidate, 1);
-  }
-  if (ticks[ticks.length - 1].getTime() !== end.getTime()) ticks.push(end);
-  return ticks;
-}
-
-function buildDayBoundaryTicks(start: any, end: any, dayStep: any) {
-  const ticks = [start];
-  let candidate = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + dayStep));
-  while (candidate < end) {
-    ticks.push(candidate);
-    candidate = new Date(candidate.getTime() + dayStep * 24 * 60 * 60 * 1000);
-  }
-  if (ticks[ticks.length - 1].getTime() !== end.getTime()) ticks.push(end);
-  return ticks;
-}
-
-function downsampleTicks(ticks: any, target: any) {
-  if (ticks.length <= target) return ticks;
-  const kept = [ticks[0]];
-  const interior = ticks.slice(1, -1);
-  const needed = Math.max(target - 2, 0);
-  if (needed > 0) {
-    const step = interior.length / needed;
-    const pickedIndices = [];
-    for (let index = 0; index < needed; index += 1) {
-      let picked = Math.round(index * step);
-      picked = Math.min(picked, interior.length - 1);
-      if (pickedIndices.length && picked <= pickedIndices[pickedIndices.length - 1]) {
-        picked = Math.min(pickedIndices[pickedIndices.length - 1] + 1, interior.length - 1);
-      }
-      pickedIndices.push(picked);
-    }
-    for (const index of pickedIndices) kept.push(interior[index]);
-  }
-  kept.push(ticks[ticks.length - 1]);
-  return kept.filter((tick, index) => index === 0 || tick.getTime() !== kept[index - 1].getTime());
-}
-
-function pruneOverlappingTicks(ticks: any, chartWidth: any, mapper: any) {
-  if (ticks.length <= 2) return ticks;
-  const kept = [ticks[0]];
-  let previousExtent = dateTickExtent(ticks[0], chartWidth, mapper, "start");
-  for (const tick of ticks.slice(1, -1)) {
-    const extent = dateTickExtent(tick, chartWidth, mapper, "middle");
-    if (extent[0] >= previousExtent[1] + DATE_TICK_GAP) {
-      kept.push(tick);
-      previousExtent = extent;
-    }
-  }
-  const lastTick = ticks[ticks.length - 1];
-  const lastExtent = dateTickExtent(lastTick, chartWidth, mapper, "end");
-  while (kept.length > 1 && previousExtent[1] + DATE_TICK_GAP > lastExtent[0]) {
-    kept.pop();
-    previousExtent = dateTickExtent(kept[kept.length - 1], chartWidth, mapper, kept.length === 1 ? "start" : "middle");
-  }
-  kept.push(lastTick);
-  return kept;
-}
-
-function dateTickExtent(tick: any, chartWidth: any, mapper: any, anchor: any) {
-  const x = tickXPosition(tick, chartWidth, mapper);
-  const labelWidth = formatDateTick(tick).length * DATE_TICK_CHAR_WIDTH;
-  if (anchor === "start") return [x, x + labelWidth];
-  if (anchor === "end") return [x - labelWidth, x];
-  return [x - labelWidth / 2, x + labelWidth / 2];
-}
-
-function tickXPosition(value: any, width: any, mapper: any) {
-  return Math.min(Math.max(mapper(value, width), 0), width);
-}
-
-function scaleTime(value: any, start: any, end: any, width: any) {
-  const total = end.getTime() - start.getTime();
-  return total === 0 ? 0 : ((value.getTime() - start.getTime()) / total) * width;
-}
-
-function scaleLinear(value: any, maxValue: any, height: any) {
-  return maxValue === 0 ? height : height - (value / maxValue) * height;
-}
-
-function recommendedChartWidth(commitTrend: Array<{ timestamp: string }>) {
-  if (commitTrend.length < 2) return 900;
-  const first = parseIsoDate(String(commitTrend[0].timestamp));
-  const last = parseIsoDate(String(commitTrend[commitTrend.length - 1].timestamp));
-  const spanDays = Math.max(Math.floor((last.getTime() - first.getTime()) / (24 * 60 * 60 * 1000)), 1);
-  return Math.min(1600, Math.max(900, 900 + Math.max(0, spanDays - 365)));
-}
-
-function buildLinePath(points: any) {
-  return points.map(([x, y]: any, index: number) => `${index === 0 ? "M" : "L"}${formatNumber(x)},${formatNumber(y)}`).join(" ");
-}
-
-function niceNumber(value: any) {
-  if (value <= 0) return 1;
-  const exponent = Math.floor(Math.log10(value));
-  const fraction = value / (10 ** exponent);
-  let niceFraction;
-  if (fraction <= 1) niceFraction = 1;
-  else if (fraction <= 2) niceFraction = 2;
-  else if (fraction <= 5) niceFraction = 5;
-  else niceFraction = 10;
-  return niceFraction * (10 ** exponent);
-}
-
-function firstOfNextMonth(value: any) {
-  return value.getUTCMonth() === 11
-    ? new Date(Date.UTC(value.getUTCFullYear() + 1, 0, 1))
-    : new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, 1));
-}
-
-function addMonths(value: any, months: any) {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + months, 1));
-}
-
-function formatDateTick(value: any) {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[value.getUTCMonth()]} ${pad2(value.getUTCDate())}, ${value.getUTCFullYear()}`;
-}
-
-function formatNumberTick(value: any) {
-  if (value >= 1000000) return value % 1000000 ? `${(value / 1000000).toFixed(1)}M` : `${Math.trunc(value / 1000000)}M`;
-  if (value >= 1000) return value % 1000 ? `${(value / 1000).toFixed(1)}K` : `${Math.trunc(value / 1000)}K`;
-  return Number.isInteger(value) ? String(value) : String(value.toFixed(1)).replace(/\.0$/u, "");
-}
-
-function tickAnchor(index: any, total: any) {
-  if (index === 0) return "start";
-  if (index === total - 1) return "end";
-  return "middle";
-}
-
 function parentFolder(notePath: any) {
   const parts = notePath.split("/").slice(0, -1);
   return parts.length ? parts.join("/") : "(root)";
@@ -773,16 +500,4 @@ function pad2(value: any) {
 
 function sum(values: any) {
   return values.reduce((total: number, value: any) => total + Number(value), 0);
-}
-
-function round10(value: any) {
-  return Math.round(value * 10000000000) / 10000000000;
-}
-
-function formatNumber(value: any) {
-  return Number(value).toFixed(2);
-}
-
-function escapeXml(value: any) {
-  return String(value).replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;");
 }

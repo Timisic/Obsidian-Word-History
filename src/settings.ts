@@ -1,4 +1,5 @@
 import { Notice, PluginSettingTab, Setting, type App } from "obsidian";
+import { validateChartOptions } from "./chart";
 import type WordHistoryPlugin from "./main";
 import { copyText, openFile, revealFile } from "./platformActions";
 import type { WordHistorySettings } from "./types";
@@ -103,6 +104,50 @@ export class WordHistorySettingTab extends PluginSettingTab {
           this.plugin.settings.outputPath = value.trim() || "Reference/chart.svg";
           await this.plugin.saveSettings();
         }));
+
+    new Setting(containerEl)
+      .setName("Milestone month")
+      .setDesc("Optional YYYY-MM marker at the first day of that month.")
+      .addText((text) => {
+        text.inputEl.addEventListener("blur", () => text.inputEl.reportValidity());
+        return text.setPlaceholder("YYYY-MM")
+        .setValue(this.plugin.settings.milestoneMonth)
+        .onChange(async (value) => {
+          const milestoneMonth = value.trim();
+          try { validateChartOptions({ ...this.plugin.settings, milestoneMonth }); }
+          catch {
+            text.inputEl.setCustomValidity("Use YYYY-MM, such as 2025-07, or leave empty.");
+            text.inputEl.setAttribute("aria-invalid", "true");
+            return;
+          }
+          text.inputEl.setCustomValidity("");
+          text.inputEl.removeAttribute("aria-invalid");
+          this.plugin.settings.milestoneMonth = milestoneMonth;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Chart time zone")
+      .setDesc("IANA time zone for dates and month boundaries, for example UTC or Asia/Shanghai.")
+      .addText((text) => {
+        text.inputEl.addEventListener("blur", () => text.inputEl.reportValidity());
+        return text.setPlaceholder("UTC")
+        .setValue(this.plugin.settings.timeZone)
+        .onChange(async (value) => {
+          const timeZone = value.trim() || "UTC";
+          try { validateChartOptions({ ...this.plugin.settings, timeZone }); }
+          catch {
+            text.inputEl.setCustomValidity("Use a valid IANA time zone, such as UTC or Asia/Shanghai.");
+            text.inputEl.setAttribute("aria-invalid", "true");
+            return;
+          }
+          text.inputEl.setCustomValidity("");
+          text.inputEl.removeAttribute("aria-invalid");
+          this.plugin.settings.timeZone = timeZone;
+          await this.plugin.saveSettings();
+        });
+      });
 
     new Setting(containerEl)
       .setName("Update mode")
