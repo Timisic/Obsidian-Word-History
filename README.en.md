@@ -112,3 +112,5 @@ The default width is 780px; the minimum is 360px. Positions follow elapsed time.
 Set `Milestone month` to an optional `YYYY-MM`, such as `2025-07`. Its dashed line marks the first day of that month in the selected time zone. Edge labels move with a leader while the line stays at its true position. A month outside the range appears only as a footer note. The default milestone is empty. `Chart time zone` defaults to `UTC`; `Asia/Shanghai` is supported. The CLI accepts the same options through `--milestone-month 2025-07 --time-zone Asia/Shanghai`.
 
 Plugin CI checks the build, Python tests and Chromium publishing tests. `npm run render:png -- input.svg output.png` converts an SVG to PNG. Use `examples/publish-profile.yml` in the private vault repository and pin the public plugin commit. `PROFILE_DEPLOY_KEY` writes only to the profile repository. Only the PNG is published.
+
+The settings page keeps generation, viewing, copying, auto-update, and the output path visible. Chart options and diagnostics are collapsed. Labels follow Obsidian’s language, and generation blocks duplicate runs.

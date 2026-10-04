@@ -6,11 +6,12 @@ import { copyText, openFile, revealFile } from "./platformActions";
 
 const labels = {
   en: { generate: "Generate", generating: "Generating…", view: "View chart", copy: "Copy embed", copied: "Copied.", intervalHelp: "Runs while Obsidian is open.", gitHelp: "Checks Git commits at startup and hourly.", update: "Auto update", manual: "Manual", interval: "Every N days", git: "After Git commits", days: "Interval days", positive: "Enter a positive whole number.", path: "Save to", pathHelp: "Vault-relative or absolute SVG path.", options: "Chart options", month: "Milestone month", monthHelp: "YYYY-MM, or leave empty.", monthError: "Use YYYY-MM, such as 2025-07, or leave empty.", zone: "Time zone", zoneError: "Use a valid IANA time zone, such as UTC or Asia/Shanghai.", diagnostics: "Diagnostics", check: "Refresh / check", reveal: "Reveal file", reset: "Reset cache", resetHelp: "Cache cleared. The next generation will replay Git history.", pending: "Run a check to inspect Git and output access.", checking: "Checking…", never: "No chart generated yet.", running: "Generating local chart…", total: "total words", failed: "Generation failed", outside: "Embedding requires a save location inside this vault.", noCache: "No cache yet.", cache: "Cache", noMonth: "No milestone" },
-  zh: { generate: "立即生成", generating: "正在生成…", view: "查看图表", copy: "复制嵌入", copied: "已复制。", intervalHelp: "仅在 Obsidian 打开时运行。", gitHelp: "启动时及每小时检查 Git 提交。", update: "自动更新", manual: "手动", interval: "每隔几天", git: "Git 提交后", days: "间隔天数", positive: "请输入正整数。", path: "保存位置", pathHelp: "填写库内相对路径或 SVG 的绝对路径。", options: "图表选项", month: "里程碑月份", monthHelp: "YYYY-MM，可留空。", monthError: "请使用 YYYY-MM，例如 2025-07，或留空。", zone: "时区", zoneError: "请输入有效时区，例如 UTC 或 Asia/Shanghai。", diagnostics: "诊断与维护", check: "刷新检查", reveal: "显示文件", reset: "重置缓存", resetHelp: "缓存已清除，下次生成将重新读取 Git 历史。", pending: "点击检查，查看 Git 与保存位置是否可用。", checking: "正在检查…", never: "尚未生成图表。", running: "正在生成本地图表…", total: "总字数", failed: "生成失败", outside: "保存到此库内后才能复制嵌入。", noCache: "暂无缓存。", cache: "缓存", noMonth: "无里程碑" },
+  zh: { generate: "立即生成", generating: "正在生成…", view: "查看图表", copy: "复制嵌入", copied: "已复制。", intervalHelp: "仅在 Obsidian 打开时运行。", gitHelp: "启动时及每小时检查 Git 提交。", update: "自动更新", manual: "手动", interval: "每隔几天", git: "Git 提交后", days: "间隔天数", positive: "请输入正整数。", path: "保存位置", pathHelp: "库内路径或绝对路径。", options: "图表选项", month: "里程碑月份", monthHelp: "YYYY-MM，可留空。", monthError: "请使用 YYYY-MM，例如 2025-07，或留空。", zone: "时区", zoneError: "请输入有效时区，例如 UTC 或 Asia/Shanghai。", diagnostics: "诊断与维护", check: "刷新检查", reveal: "显示文件", reset: "重置缓存", resetHelp: "缓存已清除，下次生成将重新读取 Git 历史。", pending: "点击检查，查看 Git 与保存位置是否可用。", checking: "正在检查…", never: "尚未生成图表。", running: "正在生成本地图表…", total: "字", failed: "生成失败", outside: "保存到此库内后才能复制嵌入。", noCache: "暂无缓存。", cache: "缓存", noMonth: "无里程碑" },
 };
 
 export class WordHistorySettingTab extends PluginSettingTab {
   private readonly words = labels[typeof getLanguage === "function" && getLanguage().startsWith("zh") ? "zh" : "en"];
+  private validationId = 0;
   private statusEl: HTMLElement | null = null;
   private cacheEl: HTMLElement | null = null;
   private embedHelpEl: HTMLElement | null = null;
@@ -51,7 +52,6 @@ export class WordHistorySettingTab extends PluginSettingTab {
     this.embedHelpEl = el.createEl("p", { text: w.outside });
 
     const interval = new Setting(el).setName(w.days).addText(text => {
-      text.inputEl.addEventListener("blur", () => text.inputEl.reportValidity());
       text.setValue(String(this.plugin.settings.intervalDays)).onChange(async value => {
         const parsed = Number(value);
         if (!/^\d+$/u.test(value.trim()) || !Number.isSafeInteger(parsed) || parsed <= 0) {
@@ -88,7 +88,6 @@ export class WordHistorySettingTab extends PluginSettingTab {
     const updateSummary = () => { summary.textContent = `${w.options} · ${this.plugin.settings.milestoneMonth || w.noMonth} · ${this.plugin.settings.timeZone}`; };
     updateSummary();
     new Setting(options).setName(w.month).setDesc(w.monthHelp).addText(text => {
-      text.inputEl.addEventListener("blur", () => text.inputEl.reportValidity());
       text.setPlaceholder("YYYY-MM").setValue(this.plugin.settings.milestoneMonth).onChange(async value => {
         const milestoneMonth = value.trim();
         try { validateChartOptions({ ...this.plugin.settings, milestoneMonth }); }
@@ -100,7 +99,6 @@ export class WordHistorySettingTab extends PluginSettingTab {
       });
     });
     new Setting(options).setName(w.zone).addText(text => {
-      text.inputEl.addEventListener("blur", () => text.inputEl.reportValidity());
       text.setPlaceholder("UTC").setValue(this.plugin.settings.timeZone).onChange(async value => {
         const timeZone = value.trim() || "UTC";
         try { validateChartOptions({ ...this.plugin.settings, timeZone }); }
@@ -143,7 +141,7 @@ export class WordHistorySettingTab extends PluginSettingTab {
     const w = this.words;
     const s = this.plugin.settings;
     const running = this.plugin.isGenerating;
-    if (this.statusEl) this.statusEl.textContent = running ? w.running : s.lastRunError ? `${w.failed}: ${s.lastRunError}` : s.lastRunAt ? `${new Date(s.lastRunAt).toLocaleString()} · ${s.lastTotalWords.toLocaleString()} ${w.total}` : w.never;
+    if (this.statusEl) this.statusEl.textContent = running ? w.running : s.lastRunError ? `${w.failed}: ${s.lastRunError}` : s.lastRunAt ? `${new Date(s.lastRunAt).toLocaleString(undefined, { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${s.lastTotalWords.toLocaleString()} ${w.total}` : w.never;
     this.generateButton?.setDisabled(running).setButtonText(running ? w.generating : w.generate);
     this.resetButton?.setDisabled(running);
     let exists = false;
@@ -160,8 +158,26 @@ export class WordHistorySettingTab extends PluginSettingTab {
 
   private invalid(input: HTMLInputElement, message: string) {
     input.setCustomValidity(message);
-    if (message) input.setAttribute("aria-invalid", "true");
-    else input.removeAttribute("aria-invalid");
+    const errorId = input.getAttribute("aria-errormessage");
+    let errorEl = errorId ? input.ownerDocument.getElementById(errorId) : null;
+    if (!message) {
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-errormessage");
+      errorEl?.remove();
+      return;
+    }
+    input.setAttribute("aria-invalid", "true");
+    if (!errorEl) {
+      errorEl = input.ownerDocument.createElement("div");
+      errorEl.id = `word-history-validation-${++this.validationId}`;
+      errorEl.className = "setting-item-description";
+      errorEl.style.color = "var(--text-error)";
+      errorEl.setAttribute("role", "alert");
+      const info = input.closest(".setting-item")?.querySelector(".setting-item-info");
+      (info || input.parentElement)?.append(errorEl);
+      input.setAttribute("aria-errormessage", errorEl.id);
+    }
+    errorEl.textContent = message;
   }
   private errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
   private async runAction(action: () => Promise<void>) {

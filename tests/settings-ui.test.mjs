@@ -44,7 +44,8 @@ test('native settings preserve disclosures and inputs while busy, validate edits
     await page.locator('summary').first().click();
     await row('里程碑月份').locator('input').fill('invalid');
     assert.equal(await page.evaluate(() => plugin.settings.milestoneMonth), '');
-    await row('时区').locator('input').evaluate(el => { el.value = 'invalid/zone'; el.dispatchEvent(new Event('input')); });
+    await row('时区').locator('input').fill('invalid/zone');
+    assert.equal(await row('里程碑月份').getByRole('alert').isVisible(), true);
     assert.equal(await page.evaluate(() => plugin.settings.timeZone), 'UTC');
     await page.getByRole('button', { name: '立即生成' }).click();
     assert.equal(await page.getByRole('button', { name: '正在生成…' }).isDisabled(), true);
